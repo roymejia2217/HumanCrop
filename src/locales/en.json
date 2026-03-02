@@ -1,0 +1,103 @@
+{
+    "app": {
+        "name": "HumanCrop",
+        "title": "HumanCrop",
+        "description": "Dynamic facial framing and AI background removal",
+        "menu_file": "File",
+        "menu_view": "View",
+        "menu_add_folder": "Add folder...",
+        "menu_add_files": "Add images...",
+        "menu_quit": "Quit",
+        "language_menu": "Language",
+        "help_menu": "Help",
+        "help_start": "Getting Started"
+    },
+    "help": {
+        "title": "Quick Guide",
+        "step_1": "1. Import",
+        "step_2": "2. Adjust",
+        "step_3": "3. Process",
+        "capture_title": "Capture Guide",
+        "capture_do": "Optimal: Frontal (1.5m)",
+        "capture_dont": "Avoid: Selfies or profile",
+        "status_title": "Processing Status",
+        "status_success": "Optimal",
+        "status_warning": "Check",
+        "status_error": "Error",
+        "close": "Got it"
+    },
+    "status": {
+        "loading": "Initializing...",
+        "ready": "AI Ready",
+        "finished": "Process finished",
+        "error_prefix": "AI Error: ",
+        "critical_error": "Critical error: "
+    },
+    "config": {
+        "title": "Settings",
+        "preset_label": "Preset",
+        "presets": {
+            "passport_eu": "35x45mm (ICAO/EU)",
+            "passport_us": "51x51mm (USA/2x2\")",
+            "id_latin": "30x40mm (LATAM)",
+            "canada": "50x70mm (Canada)",
+            "china": "33x48mm (China)",
+            "japan": "45x45mm (Japan)",
+            "arabia_uae": "40x60mm (Arabia/UAE)",
+            "cv": "600x600px (CV)",
+            "custom": "Custom..."
+        },
+        "custom_width": "Width (mm)",
+        "custom_height": "Height (mm)",
+        "bgcolor_label": "Background",
+        "colors": {
+            "white": "Pure White",
+            "grey": "Light Grey",
+            "black": "Black",
+            "blue": "Official Blue",
+            "custom": "Custom..."
+        },
+        "color_picker_aria": "Color picker"
+    },
+    "import": {
+        "title": "Import",
+        "tooltip_folder": "Folder",
+        "tooltip_files": "Images",
+        "empty_state": "No files",
+        "full_directory": "Full directory",
+        "remove_aria": "Remove"
+    },
+    "output": {
+        "title": "Destination",
+        "tooltip_select": "Select destination",
+        "empty_path": "No output path",
+        "btn_start_tooltip": "Start"
+    },
+    "batch": {
+        "title": "Status",
+        "col_file": "File",
+        "col_status": "Status",
+        "empty_state": "Progress will appear after starting",
+        "not_apt": "Tight margins"
+    },
+    "modal": {
+        "title": "Batch Completed",
+        "description": "Processing results:",
+        "success_count": "Success:",
+        "warning_count": "Warnings:",
+        "error_count": "Errors:",
+        "tooltip_open": "View result",
+        "aria_open": "View result",
+        "btn_open": "Open folder"
+    },
+    "error": {
+        "no_images": "No valid images were found.",
+        "dir_not_found": "Directory deleted or moved.",
+        "unsupported_format": "Unsupported format.",
+        "file_not_found": "File not found.",
+        "dims_too_large": "Dimensions exceeded.",
+        "read_file": "Read error.",
+        "worker_crash": "Memory crash.",
+        "ai_not_init": "AI not initialized."
+    }
+}

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self';">
+    <meta name="color-scheme" content="light dark">
+    <title data-i18n="app.title">HumanCrop - Auto Frame & Batch ID Processor</title>
+    <link rel="stylesheet" href="assets/css/pico.min.css">
+    <link rel="stylesheet" href="assets/css/pico.colors.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="container">
+        <hgroup>
+            <h1 data-i18n="app.name">HumanCrop</h1>
+            <p data-i18n="app.description">Encuadre dinámico facial y remoción de fondo mediante IA</p>
+        </hgroup>
+        
+        <p id="system-status" data-status="loading" aria-live="polite">
+            <small data-i18n="status.loading">Inicializando modelo...</small>
+        </p>
+
+        <div class="grid">
+            <section>
+                <article>
+                    <header><h6 data-i18n="config.title">Configuración</h6></header>
+
+                    <label for="select-preset" data-i18n="config.preset_label">Preset</label>
+                    <select id="select-preset">
+                        <option value="passport_eu" data-i18n="config.presets.passport_eu">35x45mm (ICAO/UE)</option>
+                        <option value="passport_us" data-i18n="config.presets.passport_us">51x51mm (USA/2x2")</option>
+                        <option value="id_latin" data-i18n="config.presets.id_latin">30x40mm (LATAM)</option>
+                        <option value="canada" data-i18n="config.presets.canada">50x70mm (Canadá)</option>
+                        <option value="china" data-i18n="config.presets.china">33x48mm (China)</option>
+                        <option value="japan" data-i18n="config.presets.japan">45x45mm (Japón)</option>
+                        <option value="arabia_uae" data-i18n="config.presets.arabia_uae">40x60mm (Arabia/UAE)</option>
+                        <option value="cv" data-i18n="config.presets.cv">600x600px (CV)</option>
+                        <option value="custom" data-i18n="config.presets.custom">Personalizado...</option>
+                    </select>
+
+                    <div id="custom-dims-wrapper" hidden>
+                        <div class="grid">
+                            <div>
+                                <label for="custom-width" data-i18n="config.custom_width">Ancho (mm)</label>
+                                <input type="number" id="custom-width" placeholder="35" min="1">
+                            </div>
+                            <div>
+                                <label for="custom-height" data-i18n="config.custom_height">Alto (mm)</label>
+                                <input type="number" id="custom-height" placeholder="45" min="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <label for="bg-color-select" data-i18n="config.bgcolor_label">Color de Fondo</label>
+                    <select id="bg-color-select">
+                        <option value="#FFFFFF" data-i18n="config.colors.white">Blanco Puro</option>
+                        <option value="#F0F0F0" data-i18n="config.colors.grey">Gris Claro</option>
+                        <option value="#000000" data-i18n="config.colors.black">Negro</option>
+                        <option value="#1E90FF" data-i18n="config.colors.blue">Azul Oficial</option>
+                        <option value="custom" data-i18n="config.colors.custom">Color Personalizado...</option>
+                    </select>
+                    
+                    <div id="custom-color-wrapper" hidden>
+                        <input type="color" id="color-picker" value="#ffffff" data-i18n-attr="aria-label:config.color_picker_aria" aria-label="Selector de color personalizado">
+                    </div>
+                </article>
+
+                <article>
+                    <header><h6 data-i18n="import.title">Importar</h6></header>
+                    <fieldset role="group">
+                        <button id="btn-input" class="secondary" data-i18n-attr="data-tooltip:import.tooltip_folder" data-tooltip="Seleccionar carpeta" data-placement="bottom">
+                            <i data-lucide="folder-plus"></i>
+                        </button>
+                        <button id="btn-files" class="secondary outline" data-i18n-attr="data-tooltip:import.tooltip_files" data-tooltip="Seleccionar imágenes" data-placement="bottom">
+                            <i data-lucide="image-plus"></i>
+                        </button>
+                    </fieldset>
+
+                    <div class="overflow-auto">
+                        <table id="files-table" class="striped">
+                            <tbody id="files-tbody"></tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <article>
+                    <header><h6 data-i18n="output.title">Destino</h6></header>
+                    <button id="btn-output" class="secondary" data-i18n-attr="data-tooltip:output.tooltip_select" data-tooltip="Seleccionar destino" data-placement="bottom">
+                        <i data-lucide="folder-open"></i>
+                    </button>
+                    <p class="path-text"><small id="txt-output" data-i18n="output.empty_path">No se ha seleccionado ruta de salida</small></p>
+
+                    <footer>
+                        <button id="btn-start" disabled class="contrast" data-i18n-attr="data-tooltip:output.btn_start_tooltip" data-tooltip="Iniciar procesamiento" data-placement="bottom">
+                            <i data-lucide="play"></i>
+                        </button>
+                    </footer>
+                </article>
+            </section>
+
+            <section>
+                <article>
+                    <header class="batch-header">
+                        <h6 data-i18n="batch.title">Estado</h6>
+                    </header>
+                    
+                    <div class="overflow-auto">
+                        <table id="progress-table" class="striped">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="batch.col_file">Archivo</th>
+                                    <th data-i18n="batch.col_status">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="progress-tbody">
+                                <tr>
+                                    <td colspan="2" style="text-align: center; padding: 2rem; color: var(--pico-muted-color);">
+                                        <em data-i18n="batch.empty_state">Podrás ver aqui el progreso luego de presionar el boton Iniciar</em>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+        </div>
+    </main>
+
+    <dialog id="result-modal">
+        <article>
+            <header>
+                <button aria-label="Close" rel="prev" id="btn-close-modal"></button>
+                <p><strong data-i18n="modal.title">Lote Completado</strong></p>
+            </header>
+            <p data-i18n="modal.description">Resultados del procesamiento:</p>
+            <ul>
+                <li><span data-i18n="modal.success_count">Éxito:</span> <strong id="modal-success-count">0</strong></li>
+                <li><span data-i18n="modal.warning_count">Avisos:</span> <strong id="modal-warning-count">0</strong></li>
+                <li><span data-i18n="modal.error_count">Errores:</span> <strong id="modal-error-count">0</strong></li>
+            </ul>
+            <footer>
+                <button id="btn-open-result" class="secondary outline" data-i18n-attr="data-tooltip:modal.tooltip_open;aria-label:modal.aria_open" data-tooltip="Ver resultado" data-placement="left" aria-label="Ver resultado">
+                    <i data-lucide="folder-open"></i>
+                </button>
+            </footer>
+        </article>
+    </dialog>
+
+    <dialog id="help-modal">
+        <article style="max-width: 600px">
+            <header>
+                <p><strong data-i18n="help.title">Guía Rápida</strong></p>
+            </header>
+            
+            <div class="grid" style="text-align: center; margin-bottom: 1.5rem;">
+                <div>
+                    <i data-lucide="image-plus" style="width: 32px; height: 32px; color: var(--pico-primary);"></i>
+                    <p><small data-i18n="help.step_1">1. Importar</small></p>
+                </div>
+                <div>
+                    <i data-lucide="settings-2" style="width: 32px; height: 32px; color: var(--pico-primary);"></i>
+                    <p><small data-i18n="help.step_2">2. Ajustar</small></p>
+                </div>
+                <div>
+                    <i data-lucide="play" style="width: 32px; height: 32px; color: var(--pico-primary);"></i>
+                    <p><small data-i18n="help.step_3">3. Iniciar</small></p>
+                </div>
+            </div>
+
+            <hr>
+
+            <hgroup style="margin-bottom: 1rem;">
+                <p><strong data-i18n="help.capture_title">Guía de Captura</strong></p>
+            </hgroup>
+
+            <div class="grid" style="text-align: center; margin-bottom: 1.5rem;">
+                <div>
+                    <i data-lucide="user-check" style="width: 32px; height: 32px; color: var(--pico-color-jade-500);"></i>
+                    <p><small data-i18n="help.capture_do">Óptimo: De frente (1.5m)</small></p>
+                </div>
+                <div>
+                    <i data-lucide="user-x" style="width: 32px; height: 32px; color: var(--pico-color-red-500);"></i>
+                    <p><small data-i18n="help.capture_dont">Evitar: Selfies o perfil</small></p>
+                </div>
+            </div>
+
+            <hr>
+
+            <hgroup style="margin-bottom: 1rem;">
+                <p><strong data-i18n="help.status_title">Estados</strong></p>
+            </hgroup>
+
+            <div class="grid" style="text-align: center;">
+                <div class="tag-success">
+                    <i data-lucide="check-circle"></i>
+                    <p><small data-i18n="help.status_success">Óptimo</small></p>
+                </div>
+                <div class="tag-warning">
+                    <i data-lucide="triangle-alert"></i>
+                    <p><small data-i18n="help.status_warning">Revisar</small></p>
+                </div>
+                <div class="tag-error">
+                    <i data-lucide="octagon-x"></i>
+                    <p><small data-i18n="help.status_error">Error</small></p>
+                </div>
+            </div>
+
+            <footer>
+                <button id="btn-close-help" class="contrast" data-i18n="help.close">Entendido</button>
+            </footer>
+        </article>
+    </dialog>
+
+    <script src="../node_modules/lucide/dist/umd/lucide.min.js"></script>
+    <script src="../dist/renderer.js"></script>
+</body>
+</html>

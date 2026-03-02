@@ -1,0 +1,3 @@
+src/assets/models/**/*.onnx filter=lfs diff=lfs merge=lfs -text
+src/assets/models/**/*.bin filter=lfs diff=lfs merge=lfs -text
+src/assets/models/imgly/* filter=lfs diff=lfs merge=lfs -text

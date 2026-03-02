@@ -1,0 +1,87 @@
+/* src/styles.css - Refactorización Estricta Pico CSS v2.1.1 */
+
+body {
+    padding-top: var(--pico-block-spacing-vertical);
+}
+
+/* Mapeo semántico de estados a variables nativas de Pico */
+[data-status="ready"] { color: var(--pico-color-jade-500); }
+[data-status="error"] { color: var(--pico-color-red-500); }
+[data-status="loading"] { color: var(--pico-primary); }
+
+#custom-color-wrapper {
+    margin-bottom: var(--pico-form-element-spacing-vertical);
+}
+
+input[type="color"] {
+    width: 100%;
+    cursor: pointer;
+}
+
+.path-text {
+    margin-top: calc(var(--pico-spacing) * 0.5);
+    color: var(--pico-muted-color);
+    word-break: break-all;
+}
+
+#progress-table th:nth-child(1) { width: 70%; }
+#progress-table th:nth-child(2) { width: 30%; text-align: center; }
+
+#progress-tbody td {
+    vertical-align: middle;
+}
+
+#progress-tbody td:first-child {
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.status-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+progress {
+    margin-bottom: 0;
+}
+
+.tag-success { color: var(--pico-color-jade-500); }
+.tag-error { color: var(--pico-color-red-500); cursor: help; }
+.tag-warning { color: var(--pico-color-amber-500); cursor: help; }
+
+.status-wrapper[data-tooltip] {
+    border-bottom: none;
+    text-decoration: none;
+}
+
+.batch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+article header h6,
+article header p,
+article footer p {
+    margin-bottom: 0;
+}
+
+.btn-remove {
+    border: none;
+    background: transparent;
+    color: var(--pico-color-red-500);
+    padding: 0;
+    width: auto;
+}
+
+.btn-remove:hover {
+    background: transparent;
+    opacity: 0.7;
+}
+
+.overflow-auto {
+    overflow-x: auto;
+}

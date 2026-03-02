@@ -1,0 +1,56 @@
+{
+  "name": "humancrop",
+  "version": "1.0.0",
+  "description": "High-performance, privacy-first desktop application for offline batch processing of official ID photos using AI biometric cropping and background removal.",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "tsc",
+    "dev": "tsc && electron .",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.rjmejia.humancrop",
+    "productName": "HumanCrop",
+    "afterPack": "./scripts/apply-fuses.js",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "files": [
+      "dist",
+      "src/index.html",
+      "src/styles.css",
+      "src/locales",
+      "src/assets",
+      "node_modules"
+    ]
+  },
+  "dependencies": {
+    "@imgly/background-removal-node": "^1.4.5",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "@vladmandic/human": "^3.2.1",
+    "i18next": "^25.8.13",
+    "i18next-fs-backend": "^2.6.1",
+    "lucide": "^0.575.0",
+    "sharp": "^0.33.2"
+  },
+  "devDependencies": {
+    "@electron/fuses": "^2.1.0",
+    "@types/node": "^20.0.0",
+    "electron": "^40.6.1",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.3.3"
+  }
+}
