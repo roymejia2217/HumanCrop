@@ -16,9 +16,9 @@ HumanCrop is a high-performance desktop application designed for the automated b
 
 ## Features
 
-- **Offline AI Processing**: Execute biometric face detection and background removal without an internet connection using local models.
-- **Biometric Cropping**: Intelligent face detection and cropping based on international ICAO standards for various passport and ID types.
-- **Background Removal**: AI-powered extraction of subjects with support for custom background colors.
+- **Offline AI Processing**: Execute high-precision tasks locally using **@vladmandic/human** and **@imgly/background-removal-node**, ensuring no data leaves the device.
+- **Biometric Cropping**: Intelligent face detection and standardized cropping powered by the **Human** library (BlazeFace) to meet international ICAO requirements.
+- **Background Removal**: State-of-the-art subject extraction using the **IMG.LY** engine (RMBG-1.4), optimized for offline execution.
 - **Batch Processing**: Simultaneous handling of multiple images or entire directories using a multi-threaded architecture.
 - **Privacy First**: All image data is processed locally on the user's hardware; no data is uploaded to external servers.
 - **Dynamic Resource Management**: Advanced WorkerPool implementation with process hibernation and memory cleanup to optimize system performance.
