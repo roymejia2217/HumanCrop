@@ -104,46 +104,20 @@ humancrop/
 - **Worker Pool**: A multi-threaded system that distributes image tasks across multiple isolated Node.js processes.
 - **Renderer (`renderer.ts`)**: Manages the reactive UI and communicates with the main process via IPC.
 
-## AI Results Example
+## Screenshots
 
-Comparison between the original input and the processed biometric ID photo with background removal and standardized cropping:
-
-<p align="center">
-  <img src="docs/screenshots/original.webp" width="45%" alt="Original Image">
-  <img src="docs/screenshots/processed.webp" width="45%" alt="Processed Image">
-</p>
-
-## Application Screenshots
-
-A visual overview of the HumanCrop user interface and core application workflow:
-
-### Main Interface and Configuration
-<p align="center">
-  <img src="docs/screenshots/home.webp" width="90%" alt="Main Interface">
-</p>
-
-### Import and Preset Selection
-<p align="center">
-  <img src="docs/screenshots/import.webp" width="45%" alt="Import Selection">
-  <img src="docs/screenshots/presets.webp" width="45%" alt="Preset Selection">
-</p>
-
-### Background Customization and Status
-<p align="center">
-  <img src="docs/screenshots/bg.webp" width="45%" alt="Background Selection">
-  <img src="docs/screenshots/status.webp" width="45%" alt="System Status">
-</p>
-
-### Batch Processing and Completion
-<p align="center">
-  <img src="docs/screenshots/statusresults.webp" width="45%" alt="Processing Progress">
-  <img src="docs/screenshots/completedmodal.webp" width="45%" alt="Batch Completion">
-</p>
-
-### User Guide
-<p align="center">
-  <img src="docs/screenshots/guide.webp" width="90%" alt="Onboarding Guide">
-</p>
+| Screenshot | Description |
+|---|---|
+| <img src="docs/screenshots/original.webp" alt="Original image" width="220"> | Original input image before biometric processing. |
+| <img src="docs/screenshots/processed.webp" alt="Processed image" width="220"> | Processed biometric ID photo with background removal and standardized cropping. |
+| <img src="docs/screenshots/home.webp" alt="Main interface" width="220"> | Main interface for configuring batch photo processing. |
+| <img src="docs/screenshots/import.webp" alt="Import selection" width="220"> | Import selection for adding images or folders. |
+| <img src="docs/screenshots/presets.webp" alt="Preset selection" width="220"> | Preset selection for ID and passport photo formats. |
+| <img src="docs/screenshots/bg.webp" alt="Background selection" width="220"> | Background color customization controls. |
+| <img src="docs/screenshots/status.webp" alt="System status" width="220"> | System status panel during processing setup. |
+| <img src="docs/screenshots/statusresults.webp" alt="Processing progress" width="220"> | Batch processing progress and output results. |
+| <img src="docs/screenshots/completedmodal.webp" alt="Batch completion" width="220"> | Completion modal after a batch finishes. |
+| <img src="docs/screenshots/guide.webp" alt="User guide" width="220"> | In-app user guide for the HumanCrop workflow. |
 
 ## License
 
