@@ -76,7 +76,8 @@ humancrop/
 │   ├── icon.ico          # Windows application icon
 │   └── icon.icns         # macOS application icon
 ├── docs/                 # Project documentation and assets
-│   └── screenshots/      # UI captures and AI result examples
+│   ├── examples/         # Original and processed result examples
+│   └── screenshots/      # UI captures
 ├── scripts/              # Build and automation scripts
 │   └── apply-fuses.js    # Security fuses lockdown script
 ├── src/                  # Source code
@@ -104,12 +105,17 @@ humancrop/
 - **Worker Pool**: A multi-threaded system that distributes image tasks across multiple isolated Node.js processes.
 - **Renderer (`renderer.ts`)**: Manages the reactive UI and communicates with the main process via IPC.
 
+## Result Example
+
+| Image | Description |
+|---|---|
+| <img src="docs/examples/original.webp" alt="Original input example" width="220"> | Original input image before biometric processing. |
+| <img src="docs/examples/processed.webp" alt="Processed output example" width="220"> | Processed biometric ID photo with background removal and standardized cropping. |
+
 ## Screenshots
 
 | Screenshot | Description |
 |---|---|
-| <img src="docs/screenshots/original.webp" alt="Original image" width="220"> | Original input image before biometric processing. |
-| <img src="docs/screenshots/processed.webp" alt="Processed image" width="220"> | Processed biometric ID photo with background removal and standardized cropping. |
 | <img src="docs/screenshots/home.webp" alt="Main interface" width="220"> | Main interface for configuring batch photo processing. |
 | <img src="docs/screenshots/import.webp" alt="Import selection" width="220"> | Import selection for adding images or folders. |
 | <img src="docs/screenshots/presets.webp" alt="Preset selection" width="220"> | Preset selection for ID and passport photo formats. |
