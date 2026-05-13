@@ -2,7 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL, fileURLToPath } from 'url';
 import sharp from 'sharp';
-import { removeBackground } from '@imgly/background-removal-node';
+
+let onnxRuntime: any = null;
 
 /** Performance optimization: restrict concurrency to manage per-worker memory overhead */
 sharp.concurrency(1);
@@ -30,6 +31,17 @@ const PRESETS: Record<string, { width: number, height: number, headRatio: number
     cv:          { width: 600, height: 600, headRatio: 0.55, topMargin: 0.15 }  // CV standard
 };
 
+const BACKGROUND_MODEL_KEY = '/models/medium';
+const BACKGROUND_INFERENCE_SIZE = 1024;
+
+function getOnnxRuntime() {
+    if (!onnxRuntime) {
+        onnxRuntime = require('onnxruntime-node');
+    }
+
+    return onnxRuntime;
+}
+
 /** 
  * Core image processing logic including background removal and biometric cropping.
  * Designed for 100% offline execution using local models.
@@ -38,6 +50,7 @@ export class ImageProcessor {
     private human: any;
     public isInitialized: boolean = false;
     private appPath: string = '';
+    private backgroundSession: any = null;
 
     constructor() {
         if (!Human) {
@@ -180,20 +193,6 @@ export class ImageProcessor {
         const imgW = meta.width || 0;
         const imgH = meta.height || 0;
 
-        /** Offline background removal using local models via the fetch interceptor */
-        const imglyModelsPath = pathToFileURL(path.join(this.appPath, 'src', 'assets', 'models', 'imgly')).href + '/';
-
-        const ext = path.extname(inputPath).toLowerCase();
-        const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-        const blob = new Blob([new Uint8Array(workingBuffer)], { type: mimeType });
-        
-        console.log('[Processor] Running offline background removal...');
-        const bgResultBlob = await removeBackground(blob, {
-            publicPath: imglyModelsPath,
-            model: 'medium'
-        });
-        const noBgBuffer = Buffer.from(await bgResultBlob.arrayBuffer());
-
         /** Face detection performed on the optimized working resolution */
         const rawData = await sharp(workingBuffer)
             .removeAlpha()
@@ -209,6 +208,12 @@ export class ImageProcessor {
         console.log('[Processor] Running face detection...');
         const result = await this.human.detect(tensor);
         tensor.dispose();
+
+        /** Offline background removal using local models */
+        const imglyModelsPath = pathToFileURL(path.join(this.appPath, 'src', 'assets', 'models', 'imgly')).href + '/';
+
+        console.log('[Processor] Running offline background removal...');
+        const noBgBuffer = await this.removeBackground(workingBuffer, imgW, imgH, imglyModelsPath, result.face?.[0]?.box);
 
         let compositeBuffer: Buffer;
 
@@ -313,5 +318,188 @@ export class ImageProcessor {
             global.gc();
             console.log('[Processor] V8 Garbage Collector invoked.');
         }
+    }
+
+    /** Loads the local background removal ONNX model from IMG.LY resource chunks */
+    private loadBackgroundModelBuffer(modelsPath: string): ArrayBuffer {
+        const resourcesPath = path.join(modelsPath, 'resources.json');
+        if (!fs.existsSync(resourcesPath)) {
+            throw new Error('ERR_BG_MODEL_NOT_FOUND');
+        }
+
+        const resources = JSON.parse(fs.readFileSync(resourcesPath, 'utf8'));
+        const modelEntry = resources[BACKGROUND_MODEL_KEY];
+        if (!modelEntry?.chunks?.length) {
+            throw new Error('ERR_BG_MODEL_NOT_FOUND');
+        }
+
+        const chunks = modelEntry.chunks.map((chunk: { hash: string, offsets: [number, number] }) => {
+            const chunkPath = path.join(modelsPath, chunk.hash);
+            if (!fs.existsSync(chunkPath)) {
+                throw new Error('ERR_BG_MODEL_NOT_FOUND');
+            }
+
+            const data = fs.readFileSync(chunkPath);
+            const expectedSize = chunk.offsets[1] - chunk.offsets[0];
+            if (data.length !== expectedSize) {
+                throw new Error('ERR_BG_MODEL_CORRUPT');
+            }
+
+            return data;
+        });
+
+        const model = Buffer.concat(chunks);
+        if (model.length !== modelEntry.size) {
+            throw new Error('ERR_BG_MODEL_CORRUPT');
+        }
+
+        return model.buffer.slice(model.byteOffset, model.byteOffset + model.byteLength);
+    }
+
+    /** Initializes a stable CPU-only ONNX session for Linux-compatible background removal */
+    private async getBackgroundSession(modelsPath: string) {
+        if (this.backgroundSession) {
+            return this.backgroundSession;
+        }
+
+        const model = this.loadBackgroundModelBuffer(modelsPath);
+        const ort = getOnnxRuntime();
+        this.backgroundSession = await ort.InferenceSession.create(model, {
+            executionProviders: ['cpu'],
+            graphOptimizationLevel: 'basic',
+            executionMode: 'sequential',
+            intraOpNumThreads: 1,
+            interOpNumThreads: 1,
+            enableCpuMemArena: false,
+            enableMemPattern: false
+        });
+
+        return this.backgroundSession;
+    }
+
+    /** Runs local segmentation directly through ONNX Runtime and applies the alpha mask with Sharp */
+    private async removeBackground(workingBuffer: Buffer, imgW: number, imgH: number, imglyModelsPath: string, faceBox?: number[]): Promise<Buffer> {
+        const modelsPath = fileURLToPath(imglyModelsPath);
+        const session = await this.getBackgroundSession(modelsPath);
+
+        const rgba = await sharp(workingBuffer)
+            .ensureAlpha()
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+
+        if (rgba.info.width !== imgW || rgba.info.height !== imgH || rgba.info.channels !== 4) {
+            throw new Error('ERR_UNSUPPORTED_FORMAT');
+        }
+
+        const resizedInput = await sharp(rgba.data, {
+            raw: { width: imgW, height: imgH, channels: 4 }
+        })
+            .resize(BACKGROUND_INFERENCE_SIZE, BACKGROUND_INFERENCE_SIZE, { fit: 'fill' })
+            .raw()
+            .toBuffer();
+
+        const pixelCount = BACKGROUND_INFERENCE_SIZE * BACKGROUND_INFERENCE_SIZE;
+        const inputTensor = new Float32Array(3 * pixelCount);
+        for (let sourceIndex = 0, pixelIndex = 0; sourceIndex < resizedInput.length; sourceIndex += 4, pixelIndex++) {
+            inputTensor[pixelIndex] = (resizedInput[sourceIndex] - 128) / 256;
+            inputTensor[pixelIndex + pixelCount] = (resizedInput[sourceIndex + 1] - 128) / 256;
+            inputTensor[pixelIndex + pixelCount + pixelCount] = (resizedInput[sourceIndex + 2] - 128) / 256;
+        }
+
+        const ort = getOnnxRuntime();
+        const output = await session.run({
+            input: new ort.Tensor('float32', inputTensor, [1, 3, BACKGROUND_INFERENCE_SIZE, BACKGROUND_INFERENCE_SIZE])
+        });
+
+        const outputTensor = output.output || output[session.outputNames?.[0]];
+        if (!outputTensor?.data) {
+            throw new Error('ERR_BG_INFERENCE_FAILED');
+        }
+
+        const alphaMask = new Uint8Array(pixelCount);
+        for (let index = 0; index < pixelCount; index++) {
+            const alpha = Math.round(outputTensor.data[index] * 255);
+            alphaMask[index] = Math.max(0, Math.min(255, alpha));
+        }
+
+        const resizedMask = this.resizeSingleChannelMask(
+            alphaMask,
+            BACKGROUND_INFERENCE_SIZE,
+            BACKGROUND_INFERENCE_SIZE,
+            imgW,
+            imgH
+        );
+
+        const outputRgba = Buffer.from(rgba.data);
+        for (let pixelIndex = 0; pixelIndex < imgW * imgH; pixelIndex++) {
+            outputRgba[(pixelIndex * 4) + 3] = resizedMask[pixelIndex];
+        }
+
+        if (faceBox && !this.hasVisibleFaceAlpha(outputRgba, imgW, imgH, faceBox)) {
+            console.warn('[Processor] Background mask did not preserve the detected face; using full-opacity source fallback.');
+            return sharp(workingBuffer)
+                .ensureAlpha(1)
+                .png()
+                .toBuffer();
+        }
+
+        return sharp(outputRgba, {
+            raw: { width: imgW, height: imgH, channels: 4 }
+        })
+            .png()
+            .toBuffer();
+    }
+
+    /** Mirrors IMG.LY tensorResizeBilinear for a one-channel alpha mask */
+    private resizeSingleChannelMask(source: Uint8Array, sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number) {
+        const resized = new Uint8Array(targetWidth * targetHeight);
+        const scaleX = sourceWidth / targetWidth;
+        const scaleY = sourceHeight / targetHeight;
+
+        for (let y = 0; y < targetHeight; y++) {
+            for (let x = 0; x < targetWidth; x++) {
+                const sourceX = x * scaleX;
+                const sourceY = y * scaleY;
+                const x1 = Math.max(Math.floor(sourceX), 0);
+                const x2 = Math.min(Math.ceil(sourceX), sourceWidth - 1);
+                const y1 = Math.max(Math.floor(sourceY), 0);
+                const y2 = Math.min(Math.ceil(sourceY), sourceHeight - 1);
+                const dx = sourceX - x1;
+                const dy = sourceY - y1;
+
+                const topLeft = source[(y1 * sourceWidth) + x1];
+                const topRight = source[(y1 * sourceWidth) + x2];
+                const bottomLeft = source[(y2 * sourceWidth) + x1];
+                const bottomRight = source[(y2 * sourceWidth) + x2];
+                const value = ((1 - dx) * (1 - dy) * topLeft) +
+                    (dx * (1 - dy) * topRight) +
+                    ((1 - dx) * dy * bottomLeft) +
+                    (dx * dy * bottomRight);
+
+                resized[(y * targetWidth) + x] = Math.round(value);
+            }
+        }
+
+        return resized;
+    }
+
+    /** Guards against invalid segmentation masks that would produce an empty biometric crop */
+    private hasVisibleFaceAlpha(rgbaBuffer: Buffer, width: number, height: number, faceBox: number[]) {
+        const [faceX, faceY, faceW, faceH] = faceBox;
+        const left = Math.max(0, Math.floor(faceX + (faceW * 0.2)));
+        const top = Math.max(0, Math.floor(faceY + (faceH * 0.2)));
+        const right = Math.min(width - 1, Math.ceil(faceX + (faceW * 0.8)));
+        const bottom = Math.min(height - 1, Math.ceil(faceY + (faceH * 0.8)));
+
+        let alphaSum = 0;
+        let sampleCount = 0;
+        for (let y = top; y <= bottom; y += 4) {
+            for (let x = left; x <= right; x += 4) {
+                alphaSum += rgbaBuffer[((y * width + x) * 4) + 3];
+                sampleCount++;
+            }
+        }
+
+        return sampleCount > 0 && (alphaSum / sampleCount) >= 64;
     }
 }

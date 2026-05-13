@@ -8,4 +8,3 @@ Thumbs.db
 test/dist
 test/output
 test/fixtures
-package-lock.json

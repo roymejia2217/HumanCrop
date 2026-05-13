@@ -3,17 +3,37 @@
   "version": "1.0.0",
   "description": "High-performance, privacy-first desktop application for offline batch processing of official ID photos using AI biometric cropping and background removal.",
   "main": "dist/main.js",
+  "author": {
+    "name": "RJ Mejia"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "start": "electron .",
     "build": "tsc",
+    "test": "node scripts/validate-release-config.js",
+    "validate:models": "node scripts/validate-model-assets.js",
     "dev": "tsc && electron .",
     "pack": "electron-builder --dir",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run validate:models && npm run build && electron-builder",
+    "dist:win": "npm run validate:models && npm run build && electron-builder --win nsis",
+    "dist:linux": "npm run validate:models && npm run build && electron-builder --linux AppImage deb",
+    "dist:all": "npm run validate:models && npm run build && electron-builder --win nsis --linux AppImage deb",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "com.rjmejia.humancrop",
     "productName": "HumanCrop",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "compression": "maximum",
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/@img/**/*",
+      "**/node_modules/onnxruntime-node/**/*"
+    ],
     "afterPack": "./scripts/apply-fuses.js",
     "directories": {
       "output": "release"
@@ -21,8 +41,38 @@
     "win": {
       "target": "nsis"
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HumanCrop"
+    },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Graphics",
+      "maintainer": "RJ Mejia",
+      "executableName": "humancrop",
+      "synopsis": "Offline AI biometric photo cropper",
+      "description": "Privacy-first desktop application for offline batch processing of official ID photos using AI biometric cropping and background removal."
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ]
     },
     "mac": {
       "target": "dmg"
@@ -37,14 +87,14 @@
     ]
   },
   "dependencies": {
-    "@imgly/background-removal-node": "^1.4.5",
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-wasm": "^4.22.0",
     "@vladmandic/human": "^3.2.1",
     "i18next": "^25.8.13",
     "i18next-fs-backend": "^2.6.1",
     "lucide": "^0.575.0",
-    "sharp": "^0.33.2"
+    "onnxruntime-node": "1.17.3",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@electron/fuses": "^2.1.0",

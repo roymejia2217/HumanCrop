@@ -78,9 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         /** Update UI elements with conditional text states */
-        if (!state.outputDir) {
-            nodes.txtOutput.textContent = getTranslation('output.empty_path');
-        }
+        renderOutputPath();
 
         /** Refresh tooltips for progress table warning tags */
         nodes.progressTbody.querySelectorAll('.tag-warning').forEach(el => {
@@ -116,6 +114,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const basename = (path: string): string => path.split(/[\\/]/).pop() || path;
+
+    const renderOutputPath = () => {
+        nodes.txtOutput.textContent = state.outputDir ? basename(state.outputDir) : getTranslation('output.empty_path');
+    };
 
     /** Renders the list of selected files or the source directory in the UI */
     const renderSourceTable = () => {
@@ -199,7 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dir = await window.electronAPI.selectOutputDir();
         if (dir) {
             state.outputDir = dir;
-            nodes.txtOutput.textContent = basename(dir);
+            renderOutputPath();
             checkReadiness();
         }
     });
