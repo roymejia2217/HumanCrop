@@ -215,6 +215,15 @@ Test coverage includes:
 
 ---
 
+## Examples
+
+| Example | Description |
+|---|---|
+| <img src="docs/examples/original.webp" alt="Original input example" width="220"> | Original input image before processing. |
+| <img src="docs/examples/processed.webp" alt="Processed output example" width="220"> | Processed biometric ID photo after background removal and cropping. |
+
+---
+
 ## Screenshots
 
 | Screenshot | Description |
