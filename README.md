@@ -1,130 +1,235 @@
 <p align="center">
-  <img src="src/assets/icon.png" width="128" height="128" alt="HumanCrop Icon">
+  <img src="docs/banner.webp" alt="HumanCrop Banner" />
 </p>
 
 <h1 align="center">HumanCrop</h1>
 
 <p align="center">
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-40.6.1-47848F?logo=electron&logoColor=white" alt="Electron"></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.3.3-3178C6?logo=typescript&logoColor=white" alt="TypeScript"></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white" alt="Node.js"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/Release-v1.0.0-blue" alt="Version 1.0.0">
+  <a href="https://nodejs.org/">
+    <img src="https://img.shields.io/badge/Node.js-%3E%3D22.12.0-339933?style=flat&logo=nodedotjs" alt="Node.js" />
+  </a>
+  <a href="https://www.typescriptlang.org/">
+    <img src="https://img.shields.io/badge/TypeScript-5.3.3-3178C6?style=flat&logo=typescript" alt="TypeScript" />
+  </a>
+  <a href="https://www.electronjs.org/">
+    <img src="https://img.shields.io/badge/Electron-40.6.1-47848F?style=flat&logo=electron" alt="Electron" />
+  </a>
+  <a href="https://www.tensorflow.org/js">
+    <img src="https://img.shields.io/badge/TensorFlow.js-4.22.0-FF6F00?style=flat&logo=tensorflow" alt="TensorFlow.js" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
 </p>
 
-HumanCrop is a high-performance desktop application designed for the automated batch processing of official ID and passport photos. It utilizes local artificial intelligence to perform biometric face detection, background removal, and standard-compliant cropping entirely offline, ensuring maximum data privacy and system efficiency.
+<p align="center">
+  High-performance, privacy-first desktop application for offline batch processing of official ID photos using AI biometric cropping and background removal.
+</p>
 
-## Features
+---
 
-- **Offline AI Processing**: Execute high-precision tasks locally using **@vladmandic/human** and **@imgly/background-removal-node**, ensuring no data leaves the device.
-- **Biometric Cropping**: Intelligent face detection and standardized cropping powered by the **Human** library (BlazeFace) to meet international ICAO requirements.
-- **Background Removal**: State-of-the-art subject extraction using the **IMG.LY** engine (RMBG-1.4), optimized for offline execution.
-- **Batch Processing**: Simultaneous handling of multiple images or entire directories using a multi-threaded architecture.
-- **Privacy First**: All image data is processed locally on the user's hardware; no data is uploaded to external servers.
-- **Dynamic Resource Management**: Advanced WorkerPool implementation with process hibernation and memory cleanup to optimize system performance.
-- **Multilingual Support**: Fully localized interface available in English and Spanish.
-- **Atomic File Operations**: Prevents file corruption through temporary staging and atomic renaming protocols.
+## Quick Start
 
-## Prerequisites
+```bash
+git clone https://github.com/roymejia2217/HumanCrop.git
+cd HumanCrop
+npm install
+npm run build
+```
 
-- **Operating System**: Windows 10/11 (64-bit).
-- **Runtime**: Node.js 18.0.0 or higher.
-- **Hardware**: 
-  - Minimum 4GB RAM (8GB recommended for high-concurrency processing).
-  - CPU with SIMD/AVX2 support for optimal AI inference speed.
-
-## Installation
-
-1. Clone the repository to your local machine.
-2. Navigate to the project directory and install dependencies:
-   ```powershell
-   npm install
-   ```
-3. Compile the TypeScript source code:
-   ```powershell
-   npm run build
-   ```
-
-## Usage
-
-### Development Mode
-To launch the application in a development environment:
-```powershell
+```bash
 npm start
 ```
 
-### Production Build
-To generate a production-ready installer (NSIS):
-```powershell
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Image and folder import** | Selects individual JPG, JPEG, PNG, and WebP files or a complete source directory from the desktop interface. |
+| **Biometric presets** | Produces predefined output sizes for EU, US, LATAM, Canada, China, Japan, Arabia/UAE, and CV photo formats. |
+| **Custom dimensions** | Converts custom millimeter dimensions to 300 DPI pixel output with size validation. |
+| **Offline face detection** | Detects faces locally with the bundled Human BlazeFace model through TensorFlow.js WASM. |
+| **Offline background removal** | Runs bundled background model chunks through ONNX Runtime CPU inference without uploading images. |
+| **Background color control** | Applies white, gray, black, blue, or custom background colors to generated photos. |
+| **Batch worker pool** | Processes images through isolated worker processes with concurrency derived from CPU cores and available memory. |
+| **Progress reporting** | Streams per-file processing, success, warning, and error states into the renderer progress table. |
+| **Localized interface** | Loads English and Spanish translations through i18next and exposes a language menu. |
+| **Secure desktop bridge** | Uses Electron context isolation and a preload bridge for filesystem dialogs, IPC events, and result folder opening. |
+| **Atomic output writes** | Writes each processed PNG to a temporary file before renaming it into the destination folder. |
+| **Release validation** | Validates model hydration, packaging targets, native module unpacking, and runtime constraints before release builds. |
+
+---
+
+## Prerequisites
+
+| Dependency | Purpose | Installation |
+|------------|---------|--------------|
+| **Node.js** >=22.12.0 | Runs the Electron build tooling and application scripts. | [Download Node.js](https://nodejs.org/) |
+| **npm** >=10.0.0 | Installs dependencies and runs project scripts. | Bundled with Node.js |
+| **Git LFS** | Hydrates the bundled AI model assets before packaging. | `git lfs install && git lfs pull` |
+| **Linux desktop libraries** | Satisfy Debian package runtime dependencies for Electron desktop integration. | `sudo apt install libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libuuid1 libsecret-1-0` |
+
+**Note:** Release packaging validates hydrated model assets before building installers. If model files are still Git LFS pointers, `npm run validate:models` and release builds fail intentionally.
+
+---
+
+## Installation
+
+```bash
+npm install
+npm run build
+npm run validate:models
+```
+
+---
+
+## Usage
+
+### Desktop App
+
+```bash
+npm start
+```
+
+1. Choose a source folder or add individual image files.
+2. Select an output folder.
+3. Choose a biometric preset or enter custom dimensions.
+4. Choose a background color.
+5. Start the batch and review the per-file status table.
+6. Open the result folder from the completion dialog.
+
+### Development Build
+
+```bash
+npm run dev
+```
+
+1. Compile the TypeScript source.
+2. Launch Electron from the compiled `dist` entrypoint.
+
+### Release Build
+
+```bash
 npm run dist
 ```
 
-### Application Workflow
-1. Select the source directory or individual images for processing.
-2. Choose a destination folder for the output files.
-3. Select an ID/Passport preset (e.g., Passport EU, US Visa).
-4. Configure the desired background color.
-5. Click **Start Batch** to begin processing.
+1. Validate model assets.
+2. Compile the TypeScript source.
+3. Package the application with Electron Builder.
 
-## Structure
+**Output naming:**
+- Processed images are written as PNG files named `{original_name}_{preset}.png`.
+- Temporary output files are staged in the selected destination folder and atomically renamed after the write succeeds.
 
-HumanCrop is organized into a modular architecture to separate the UI, processing logic, and background execution:
+**Status meanings:**
+- Success means the crop fit the selected biometric framing.
+- Warning means the output was generated but should be reviewed for tight margins.
+- Error means the file could not be processed and the UI shows the mapped error state.
+
+---
+
+## Project Structure
 
 ```
-humancrop/
-├── build/                # Build resources and icons
-│   ├── icon.ico          # Windows application icon
-│   └── icon.icns         # macOS application icon
-├── docs/                 # Project documentation and assets
-│   ├── examples/         # Original and processed result examples
-│   └── screenshots/      # UI captures
-├── scripts/              # Build and automation scripts
-│   └── apply-fuses.js    # Security fuses lockdown script
-├── src/                  # Source code
-│   ├── assets/           # Static assets
-│   │   ├── css/          # Local stylesheets (PicoCSS)
-│   │   ├── models/       # Offline AI model weights
-│   │   └── icon.png      # High-resolution master logo
-│   ├── locales/          # Localization (en.json, es.json)
-│   ├── main.ts           # Electron main process & WorkerPool
-│   ├── processor.ts      # Biometric AI & image processing core
-│   ├── worker.ts         # Isolated background worker script
-│   ├── renderer.ts       # Renderer process & UI state
-│   ├── preload.ts        # Secure contextBridge interface
-│   ├── index.html        # Main application layout
-│   └── styles.css        # Global UI styling
-├── package.json          # Project metadata and dependencies
-├── tsconfig.json         # TypeScript configuration
-├── LICENSE               # MIT Legal terms
-└── README.md             # This documentation
+HumanCrop/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── release.yml
+├── build/
+│   ├── icon.icns
+│   ├── icon.ico
+│   └── icons/
+├── docs/
+│   ├── banner.webp
+│   ├── examples/
+│   └── screenshots/
+├── scripts/
+│   ├── apply-fuses.js              # Applies Electron security fuses after packaging.
+│   ├── validate-model-assets.js    # Rejects builds with unhydrated Git LFS model pointers.
+│   └── validate-release-config.js  # Validates release scripts, packaging settings, and runtime constraints.
+├── src/
+│   ├── assets/
+│   │   ├── icon.png
+│   │   └── models/
+│   │       ├── human/
+│   │       └── imgly/
+│   ├── locales/
+│   │   ├── en.json
+│   │   └── es.json
+│   ├── global.d.ts
+│   ├── index.html
+│   ├── main.ts
+│   ├── preload.ts
+│   ├── processor.ts
+│   ├── renderer.ts
+│   ├── styles.css
+│   └── worker.ts
+├── LICENSE
+├── package-lock.json
+├── package.json
+├── README.md
+└── tsconfig.json
 ```
 
-### Key Modules
-- **Main Process (`main.ts`)**: Manages the application lifecycle and coordinates the `WorkerPool`.
-- **Image Processor (`processor.ts`)**: The core engine that handles AI inference, background removal, and cropping.
-- **Worker Pool**: A multi-threaded system that distributes image tasks across multiple isolated Node.js processes.
-- **Renderer (`renderer.ts`)**: Manages the reactive UI and communicates with the main process via IPC.
+---
 
-## Result Example
+## Building Executables
 
-| Image | Description |
-|---|---|
-| <img src="docs/examples/original.webp" alt="Original input example" width="220"> | Original input image before biometric processing. |
-| <img src="docs/examples/processed.webp" alt="Processed output example" width="220"> | Processed biometric ID photo with background removal and standardized cropping. |
+```bash
+npm run dist:win
+npm run dist:linux
+npm run dist:all
+```
+
+Release builds run model validation, compile TypeScript, and write packaged artifacts to `release/`. The Windows target is NSIS, and the Linux targets are AppImage and Debian packages.
+
+---
+
+## Testing
+
+```bash
+npm test
+npm run build
+```
+
+Test coverage includes:
+- `scripts/validate-release-config.js`: validates package scripts, model validation policy, lockfile policy, renderer state ownership, and offline background removal runtime constraints.
+- `npm run build`: validates TypeScript compilation for the Electron main process, preload bridge, renderer, processor, and worker.
+
+---
+
+## Credits
+
+| Project | Description | License |
+|---------|-------------|---------|
+| [Human](https://vladmandic.github.io/human/demo/index.html) | Provides local face detection through the bundled BlazeFace model. | MIT |
+| [ONNX Runtime](https://github.com/Microsoft/onnxruntime.git) | Runs CPU-only background removal inference from bundled model assets. | MIT |
+| [Sharp](https://sharp.pixelplumbing.com) | Reads, resizes, composites, and writes processed image files. | Apache-2.0 |
+| [TensorFlow.js](https://github.com/tensorflow/tfjs.git) | Supplies the WASM backend used by the local Human face detector. | Apache-2.0 |
+| [i18next](https://www.i18next.com) | Provides runtime localization for the desktop interface and menu labels. | MIT |
+| [i18next FS Backend](https://github.com/i18next/i18next-fs-backend) | Loads localization dictionaries from bundled JSON files. | MIT |
+| [Lucide](https://lucide.dev) | Renders the application icon set in the renderer process. | ISC |
+
+---
 
 ## Screenshots
 
 | Screenshot | Description |
 |---|---|
 | <img src="docs/screenshots/home.webp" alt="Main interface" width="220"> | Main interface for configuring batch photo processing. |
-| <img src="docs/screenshots/import.webp" alt="Import selection" width="220"> | Import selection for adding images or folders. |
-| <img src="docs/screenshots/presets.webp" alt="Preset selection" width="220"> | Preset selection for ID and passport photo formats. |
-| <img src="docs/screenshots/bg.webp" alt="Background selection" width="220"> | Background color customization controls. |
-| <img src="docs/screenshots/status.webp" alt="System status" width="220"> | System status panel during processing setup. |
-| <img src="docs/screenshots/statusresults.webp" alt="Processing progress" width="220"> | Batch processing progress and output results. |
-| <img src="docs/screenshots/completedmodal.webp" alt="Batch completion" width="220"> | Completion modal after a batch finishes. |
-| <img src="docs/screenshots/guide.webp" alt="User guide" width="220"> | In-app user guide for the HumanCrop workflow. |
+| <img src="docs/screenshots/import.webp" alt="Import selection" width="220"> | Import controls for adding images or a source folder. |
+| <img src="docs/screenshots/presets.webp" alt="Preset selection" width="220"> | Preset selection for ID, passport, CV, and custom dimensions. |
+| <img src="docs/screenshots/bg.webp" alt="Background selection" width="220"> | Background color controls. |
+| <img src="docs/screenshots/status.webp" alt="System status" width="220"> | System status panel during setup. |
+| <img src="docs/screenshots/statusresults.webp" alt="Processing progress" width="220"> | Batch progress and result statuses. |
+| <img src="docs/screenshots/completedmodal.webp" alt="Batch completion" width="220"> | Completion dialog with success, warning, and error counts. |
+| <img src="docs/screenshots/guide.webp" alt="User guide" width="220"> | In-app guide for the HumanCrop workflow. |
+
+---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT License. See [LICENSE](LICENSE) for details.
