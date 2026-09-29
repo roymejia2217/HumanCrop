@@ -49,7 +49,7 @@ function validatePackageConfig() {
     const winTargets = normalizeTargets(build.win && build.win.target);
     const linuxTargets = normalizeTargets(build.linux && build.linux.target);
 
-    assert(packageJson.scripts && packageJson.scripts.test === 'node scripts/validate-release-config.js', 'package.json must define npm test for release config validation.');
+    assert(packageJson.scripts && packageJson.scripts.test === 'node --test tests/*.test.cjs && node scripts/validate-release-config.js', 'package.json must run AppImage packaging tests before release config validation.');
     assert(packageJson.scripts['dist:win'], 'package.json must define dist:win.');
     assert(packageJson.scripts['dist:linux'], 'package.json must define dist:linux.');
     assert(packageJson.scripts['dist:all'], 'package.json must define dist:all.');
@@ -60,8 +60,9 @@ function validatePackageConfig() {
     assert(packageJson.scripts['dist:all'].includes('npm run validate:models'), 'dist:all must validate model assets before packaging.');
     assert(packageJson.dependencies && packageJson.dependencies['onnxruntime-node'] === '1.17.3', 'onnxruntime-node must be a direct pinned dependency for offline background removal.');
     assert(!packageJson.dependencies['@imgly/background-removal-node'], '@imgly/background-removal-node must not be a runtime dependency because its Linux native wrapper crashes during processing.');
-    assert(build.compression === 'maximum', 'electron-builder compression must be set to maximum.');
+    assert(build.compression === 'normal', 'electron-builder compression must be normal so AppImage avoids unsupported SquashFS XZ compression.');
     assert(typeof build.artifactName === 'string' && build.artifactName.includes('${productName}') && build.artifactName.includes('${version}') && build.artifactName.includes('${ext}'), 'electron-builder artifactName must include productName, version, and extension.');
+    assert(build.appImage && build.appImage.artifactName === '${productName}-${version}-${arch}.${ext}', 'AppImage artifactName must omit the redundant OS segment and use product-version-arch.AppImage.');
     assert(Array.isArray(build.asarUnpack), 'electron-builder asarUnpack must be defined for native modules.');
     assert(build.asarUnpack.includes('**/node_modules/sharp/**/*'), 'asarUnpack must include sharp native files.');
     assert(build.asarUnpack.includes('**/node_modules/@img/**/*'), 'asarUnpack must include sharp @img runtime files.');
