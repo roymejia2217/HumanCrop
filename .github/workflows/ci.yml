@@ -9,19 +9,46 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  validate:
-    name: Validate
-    runs-on: ubuntu-latest
+  workflow-lint:
+    name: Workflow Lint
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output actionlint.tar.gz
+          echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz' | sha256sum --check -
+          tar -xzf actionlint.tar.gz actionlint
+
+      - name: Lint GitHub Actions workflows
+        run: ./actionlint -color
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -34,3 +61,99 @@ jobs:
 
       - name: Build TypeScript
         run: npm run build
+
+  appimage-contract:
+    name: AppImage Package Contract
+    needs: validate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      APPIMAGEHUB_REF: 12f791deb941ff5c7a1b35007249e4e2c0e22d2b
+      APPDIR_LINT_REF: 19e30b276ffedf4d3b4b56bc6320f463625a74f8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          lfs: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install AppImage validation tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            appstream desktop-file-utils libfile-mimeinfo-perl squashfs-tools
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production AppImage
+        run: |
+          npm run validate:models
+          npm run build
+          npm exec -- electron-builder --linux AppImage --publish never
+
+      - name: Fetch pinned AppImage upstream checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          UPSTREAM_DIR="${RUNNER_TEMP}/appimage-upstream"
+          mkdir -p "${UPSTREAM_DIR}"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+            "https://raw.githubusercontent.com/AppImage/appimage.github.io/${APPIMAGEHUB_REF}/code/check-name.sh" \
+            --output "${UPSTREAM_DIR}/check-name.sh"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+            "https://raw.githubusercontent.com/AppImageCommunity/pkg2appimage/${APPDIR_LINT_REF}/appdir-lint.sh" \
+            --output "${UPSTREAM_DIR}/appdir-lint.sh"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+            "https://raw.githubusercontent.com/AppImageCommunity/pkg2appimage/${APPDIR_LINT_REF}/excludelist" \
+            --output "${UPSTREAM_DIR}/excludelist"
+
+      - name: Validate AppImage package contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          EXPECTED="HumanCrop-${VERSION}-x86_64.AppImage"
+          mapfile -t APPIMAGES < <(find release -maxdepth 1 -type f -name '*.AppImage' -printf '%f\n' | sort)
+          if [[ ${#APPIMAGES[@]} -ne 1 ]]; then
+            printf 'Expected exactly one AppImage, found %s\n' "${#APPIMAGES[@]}" >&2
+            printf '%s\n' "${APPIMAGES[@]}" >&2
+            exit 1
+          fi
+          if [[ "${APPIMAGES[0]}" != "${EXPECTED}" ]]; then
+            printf 'Unexpected AppImage name: %s (expected %s)\n' "${APPIMAGES[0]}" "${EXPECTED}" >&2
+            exit 1
+          fi
+
+          APPIMAGE="release/${EXPECTED}"
+          UPSTREAM_DIR="${RUNNER_TEMP}/appimage-upstream"
+          NAME_OUTPUT="$(bash "${UPSTREAM_DIR}/check-name.sh" --appimage "${EXPECTED}")"
+          if [[ -n "${NAME_OUTPUT}" ]]; then
+            printf '%s\n' "${NAME_OUTPUT}" >&2
+            exit 1
+          fi
+
+          OFFSET="$("${APPIMAGE}" --appimage-offset 2>/dev/null | tail -n 1)"
+          if [[ ! "${OFFSET}" =~ ^[0-9]+$ ]]; then
+            printf 'Could not determine AppImage SquashFS offset\n' >&2
+            exit 1
+          fi
+
+          SQUASHFS_INFO="$(unsquashfs -s -o "${OFFSET}" "${APPIMAGE}")"
+          printf '%s\n' "${SQUASHFS_INFO}"
+          if ! grep -Eq '^Compression (gzip|zstd)$' <<< "${SQUASHFS_INFO}"; then
+            printf 'Unsupported SquashFS compression for AppImageHub\n' >&2
+            exit 1
+          fi
+
+          rm -rf squashfs-root
+          "${APPIMAGE}" --appimage-extract >/dev/null
+          bash "${UPSTREAM_DIR}/appdir-lint.sh" squashfs-root
+
+          sha256sum "${APPIMAGE}"
