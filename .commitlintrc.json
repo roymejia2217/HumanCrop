@@ -36,6 +36,7 @@
         "release"
       ]
     ],
+    "scope-empty": [2, "never"],
     "header-max-length": [2, "always", 72],
     "body-empty": [2, "never"],
     "body-min-length": [2, "always", 20],
