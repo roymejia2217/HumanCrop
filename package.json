@@ -14,7 +14,7 @@
   "scripts": {
     "start": "electron .",
     "build": "tsc",
-    "test": "node scripts/validate-release-config.js",
+    "test": "node --test tests/*.test.cjs && node scripts/validate-release-config.js",
     "validate:models": "node scripts/validate-model-assets.js",
     "dev": "tsc && electron .",
     "pack": "electron-builder --dir",
@@ -28,7 +28,7 @@
     "appId": "com.rjmejia.humancrop",
     "productName": "HumanCrop",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
-    "compression": "maximum",
+    "compression": "normal",
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
       "**/node_modules/@img/**/*",
@@ -49,6 +49,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "HumanCrop"
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": [
