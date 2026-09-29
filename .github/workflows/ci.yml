@@ -16,12 +16,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -34,3 +34,61 @@ jobs:
 
       - name: Build TypeScript
         run: npm run build
+  appimage-contract:
+    name: AppImage Package Contract
+    needs: validate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      APPIMAGEHUB_REF: 12f791deb941ff5c7a1b35007249e4e2c0e22d2b
+      APPDIR_LINT_REF: 19e30b276ffedf4d3b4b56bc6320f463625a74f8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          lfs: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install AppImage validation tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            appstream desktop-file-utils libfile-mimeinfo-perl squashfs-tools
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production AppImage
+        run: |
+          npm run validate:models
+          npm run build
+          npm exec -- electron-builder --linux AppImage --publish never
+
+      - name: Fetch pinned AppImage upstream validation rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/appimage-lint
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --retry 3 \
+            "https://raw.githubusercontent.com/AppImage/appimage.github.io/${APPIMAGEHUB_REF}/code/check-name.sh" \
+            --output .cache/appimage-lint/check-name.sh
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --retry 3 \
+            "https://raw.githubusercontent.com/AppImageCommunity/pkg2appimage/${APPDIR_LINT_REF}/appdir-lint.sh" \
+            --output .cache/appimage-lint/appdir-lint.sh
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --retry 3 \
+            "https://raw.githubusercontent.com/AppImageCommunity/pkg2appimage/${APPDIR_LINT_REF}/excludelist" \
+            --output .cache/appimage-lint/excludelist
+
+      - name: Validate AppImage package contract
+        shell: bash
+        run: |
+          mapfile -t appimages < <(find release -maxdepth 1 -type f -name '*.AppImage' -print)
+          test "${#appimages[@]}" -eq 1
+          bash scripts/validate-appimage-artifact.sh \
+            "${appimages[0]}" .cache/appimage-lint
