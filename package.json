@@ -22,7 +22,8 @@
     "dist:win": "npm run validate:models && npm run build && electron-builder --win nsis",
     "dist:linux": "npm run validate:models && npm run build && electron-builder --linux AppImage deb",
     "dist:all": "npm run validate:models && npm run build && electron-builder --win nsis --linux AppImage deb",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "prepare": "husky"
   },
   "build": {
     "appId": "com.rjmejia.humancrop",
@@ -100,10 +101,13 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
     "@electron/fuses": "^2.1.0",
     "@types/node": "^20.0.0",
     "electron": "^40.6.1",
     "electron-builder": "^24.13.3",
+    "husky": "9.1.7",
     "typescript": "^5.3.3"
   }
 }
