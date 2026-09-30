@@ -6,6 +6,7 @@ const test = require('node:test');
 
 const rootDir = path.resolve(__dirname, '..');
 const {
+  APPSTREAM_DESKTOP_RELATIVE_PATH,
   APPSTREAM_METADATA_RELATIVE_PATH,
   syncLinuxAppStreamMetadata,
 } = require('../scripts/linux-appstream.js');
@@ -15,7 +16,19 @@ async function makeContext(targetNames, platform = 'linux') {
   return {
     appOutDir,
     electronPlatformName: platform,
-    packager: { projectDir: rootDir },
+    packager: {
+      projectDir: rootDir,
+      executableName: 'humancrop',
+      appInfo: {
+        productName: 'HumanCrop',
+        version: '1.0.0',
+        description: 'High-performance desktop app designed for official ID and passport photos',
+      },
+      platformSpecificBuildOptions: {
+        category: 'Graphics',
+        description: 'Privacy-first offline biometric photo cropper',
+      },
+    },
     targets: targetNames.map(name => ({ name })),
   };
 }
@@ -27,6 +40,23 @@ test('AppImage packaging installs AppStream metadata at the AppDir root contract
     const packaged = await fs.readFile(path.join(context.appOutDir, APPSTREAM_METADATA_RELATIVE_PATH), 'utf8');
     const source = await fs.readFile(path.join(rootDir, 'build/linux/com.rjmejia.humancrop.appdata.xml'), 'utf8');
     assert.equal(packaged, source);
+  } finally {
+    await fs.rm(context.appOutDir, { recursive: true, force: true });
+  }
+});
+
+
+
+test('AppImage packaging installs a standard desktop-id for AppStream tree validation', async () => {
+  const context = await makeContext(['appImage']);
+  try {
+    await syncLinuxAppStreamMetadata(context);
+    const desktop = await fs.readFile(path.join(context.appOutDir, APPSTREAM_DESKTOP_RELATIVE_PATH), 'utf8');
+    assert.match(desktop, /^\[Desktop Entry\]$/m);
+    assert.match(desktop, /^Name=HumanCrop$/m);
+    assert.match(desktop, /^Exec=AppRun --no-sandbox %U$/m);
+    assert.match(desktop, /^Icon=humancrop$/m);
+    assert.match(desktop, /^Categories=Graphics;$/m);
   } finally {
     await fs.rm(context.appOutDir, { recursive: true, force: true });
   }
@@ -52,6 +82,10 @@ test('non-AppImage Linux packaging removes stale AppStream staging metadata', as
     await syncLinuxAppStreamMetadata(context);
     await assert.rejects(
       fs.access(path.join(context.appOutDir, APPSTREAM_METADATA_RELATIVE_PATH)),
+      error => error && error.code === 'ENOENT',
+    );
+    await assert.rejects(
+      fs.access(path.join(context.appOutDir, APPSTREAM_DESKTOP_RELATIVE_PATH)),
       error => error && error.code === 'ENOENT',
     );
   } finally {

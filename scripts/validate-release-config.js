@@ -116,8 +116,10 @@ function validateWorkflows() {
     assert(releaseWorkflow.includes('gh release edit') && releaseWorkflow.includes('--draft=false'), 'Release workflow must publish only after candidate verification.');
     assert(ciWorkflow.includes('appstreamcli validate --pedantic build/linux/com.rjmejia.humancrop.appdata.xml'), 'CI must validate AppStream source metadata.');
     assert(ciWorkflow.includes('squashfs-root/usr/share/metainfo/com.rjmejia.humancrop.appdata.xml'), 'CI must verify packaged AppStream metadata.');
+    assert(ciWorkflow.includes('appstreamcli validate-tree --pedantic squashfs-root'), 'CI must validate the extracted AppDir as an AppStream tree.');
     assert(releaseWorkflow.includes('appstreamcli validate --pedantic build/linux/com.rjmejia.humancrop.appdata.xml'), 'Release workflow must validate AppStream source metadata.');
     assert(releaseWorkflow.includes('squashfs-root/usr/share/metainfo/com.rjmejia.humancrop.appdata.xml'), 'Release workflow must verify packaged AppStream metadata.');
+    assert(releaseWorkflow.includes('appstreamcli validate-tree --pedantic squashfs-root'), 'Release workflow must validate the extracted AppDir as an AppStream tree.');
     const windowsBuildIndex = releaseWorkflow.indexOf('  build-windows:');
     const linuxBuildIndex = releaseWorkflow.indexOf('  build-linux:');
     const draftReleaseIndex = releaseWorkflow.indexOf('  create-draft-release:');
