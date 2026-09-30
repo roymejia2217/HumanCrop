@@ -50,4 +50,5 @@ jobs:
             docs
             governance
             release
+            main
           requireScope: true

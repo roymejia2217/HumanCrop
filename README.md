@@ -136,7 +136,8 @@ HumanCrop/
 ├── docs/
 │   ├── banner.webp
 │   ├── examples/
-│   └── screenshots/
+│   ├── screenshots/
+│   └── RELEASING.md
 ├── scripts/
 │   ├── apply-fuses.js
 │   ├── validate-model-assets.js
@@ -158,11 +159,14 @@ HumanCrop/
 │   ├── renderer.ts
 │   ├── styles.css
 │   └── worker.ts
+├── .release-please-manifest.json
+├── commitlint.config.cjs
 ├── CONTRIBUTING.md
 ├── LICENSE
 ├── package-lock.json
 ├── package.json
 ├── README.md
+├── release-please-config.json
 └── tsconfig.json
 ```
 
@@ -174,7 +178,7 @@ npm run dist:linux
 npm run dist:all
 ```
 
-Release builds run model validation, compile TypeScript, and write packaged artifacts to `release/`. The Windows target is NSIS, and the Linux targets are AppImage and Debian packages.
+Release builds run model validation, compile TypeScript, and write packaged artifacts to `release/`. The Windows target is NSIS, and the Linux targets are AppImage and Debian packages. The governed semantic release and publication flow is documented in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Testing
 

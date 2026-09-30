@@ -82,13 +82,51 @@ function validateWorkflows() {
     assert(ciWorkflow.includes('npm run build'), 'CI workflow must run the TypeScript build.');
     assert(ciWorkflow.includes('npm test'), 'CI workflow must run npm test.');
 
-    assert(/tags:\s*\n\s*-\s*['"]?v\*\.\*\.\*['"]?/.test(releaseWorkflow), 'Release workflow must run only for semantic version tags.');
-    assert(/lfs:\s*true/.test(releaseWorkflow), 'Release workflow must enable Git LFS checkout.');
-    assert(releaseWorkflow.includes('npm ci'), 'Release workflow must use npm ci.');
-    assert(releaseWorkflow.includes('npm run dist:win'), 'Release workflow must build Windows artifacts.');
-    assert(releaseWorkflow.includes('npm run dist:linux'), 'Release workflow must build Linux artifacts.');
-    assert(releaseWorkflow.includes('gh release create'), 'Release workflow must create releases with GitHub CLI.');
-    assert(releaseWorkflow.includes('--verify-tag'), 'Release workflow must verify the remote tag before creating a release.');
+    assert(releaseWorkflow.includes('workflow_run:'), 'Release workflow must orchestrate after CI completion.');
+    assert(releaseWorkflow.includes('- CI') && releaseWorkflow.includes('- completed'), 'Release workflow must wait for completed CI runs.');
+    assert(!releaseWorkflow.includes('workflow_dispatch:'), 'Release workflow must not bypass successful main CI through manual dispatch.');
+    assert(!/tags:\s*\n\s*-\s*['"]?v\*\.\*\.\*['"]?/.test(releaseWorkflow), 'Release workflow must not publish directly from tag pushes.');
+    assert(!releaseWorkflow.includes('gh release create'), 'Release workflow must not bypass Release Please with gh release create.');
+    assert(releaseWorkflow.includes('actions/create-github-app-token@'), 'Release workflow must use a scoped GitHub App identity.');
+    assert(releaseWorkflow.includes('googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7'), 'Release Please action must be pinned to v5.0.0 SHA.');
+    assert(releaseWorkflow.includes('release-please-config.json'), 'Release workflow must use the governed Release Please config.');
+    assert(releaseWorkflow.includes('.release-please-manifest.json'), 'Release workflow must use the governed Release Please manifest.');
+    assert(releaseWorkflow.includes('npm run dist:win'), 'Release workflow must build Windows artifacts once.');
+    assert(releaseWorkflow.includes('npm run dist:linux'), 'Release workflow must build Linux artifacts once.');
+    assert(releaseWorkflow.includes('sha256sum') || releaseWorkflow.includes('Get-FileHash'), 'Release workflow must record SHA-256 for release candidates.');
+    assert(releaseWorkflow.includes('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'), 'Release workflow must pin upload-artifact v7.0.1.');
+    assert(releaseWorkflow.includes('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c'), 'Release workflow must pin download-artifact v8.0.1.');
+    assert(releaseWorkflow.includes('gh release upload'), 'Release workflow must upload verified candidates to the Release Please draft.');
+    assert(releaseWorkflow.includes('gh release edit') && releaseWorkflow.includes('--draft=false'), 'Release workflow must publish only after candidate verification.');
+    assert(!/^\s*uses:\s*[^@\s]+@v\d+/m.test(releaseWorkflow), 'Release workflow actions must be pinned to immutable SHAs.');
+}
+
+function validateReleasePleaseConfig() {
+    const config = readJson('release-please-config.json');
+    const manifest = readJson('.release-please-manifest.json');
+    const rootPackage = config.packages && config.packages['.'];
+
+    assert(config['bootstrap-sha'] === '0ecea98c7f3f00665b899781f1fe299de1cb2e8b', 'Release Please must bootstrap immediately after v1.0.0.');
+    assert(rootPackage && rootPackage['release-type'] === 'node', 'Release Please root package must use the node strategy.');
+    assert(rootPackage['include-component-in-tag'] === false, 'Release tags must remain vX.Y.Z without a component prefix.');
+    assert(rootPackage.draft === true, 'GitHub releases must remain draft until verified artifacts are attached.');
+    assert(rootPackage['draft-pull-request'] === true, 'Release Please pull requests must start as drafts.');
+    assert(rootPackage['force-tag-creation'] === true, 'Draft releases must create their tag immediately.');
+    assert(rootPackage['pull-request-title-pattern'] === 'chore(main): release ${version}', 'Release PR title must satisfy repository governance.');
+    assert(config['group-pull-request-title-pattern'] === 'chore(main): release ${version}', 'Grouped release PR title must satisfy repository governance.');
+    assert(manifest['.'] === '1.0.0', 'Release Please manifest must start from the published v1.0.0 baseline.');
+}
+
+function validateReleaseGovernance() {
+    const commitlint = require(path.join(rootDir, 'commitlint.config.cjs'));
+    const prGovernance = readText('.github/workflows/pr-governance.yml');
+    const scopeRule = commitlint.rules && commitlint.rules['scope-enum'];
+    const scopes = scopeRule && scopeRule[2];
+
+    assert(Array.isArray(scopes) && scopes.includes('main'), 'Commitlint must allow Release Please scope main.');
+    assert(Array.isArray(commitlint.ignores) && commitlint.ignores.some(ignore => ignore('chore(main): release 1.0.1')), 'Commitlint must narrowly ignore the exact Release Please commit shape.');
+    assert(!commitlint.ignores.some(ignore => ignore('chore(main): release candidate')), 'Release commit ignore must not accept non-SemVer messages.');
+    assert(/scopes:[\s\S]*?\n\s+main(?:\n|$)/.test(prGovernance), 'PR Governance must allow Release Please scope main.');
 }
 
 function validateLockfilePolicy() {
@@ -128,6 +166,8 @@ function validateBackgroundRemovalRuntime() {
 function main() {
     validatePackageConfig();
     validateWorkflows();
+    validateReleasePleaseConfig();
+    validateReleaseGovernance();
     validateLockfilePolicy();
     validateRendererStateOwnership();
     validateBackgroundRemovalRuntime();

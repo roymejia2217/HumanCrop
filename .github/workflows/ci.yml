@@ -66,7 +66,7 @@ jobs:
       - name: Check documentation links
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
-          args: --no-progress --max-retries 3 README.md CONTRIBUTING.md
+          args: --no-progress --max-retries 3 README.md CONTRIBUTING.md docs/RELEASING.md
           fail: true
           failIfEmpty: true
           jobSummary: true
@@ -98,6 +98,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: >-
           npm exec --no -- commitlint
+          --config commitlint.config.cjs
           --from "${{ github.event.pull_request.base.sha }}"
           --to "${{ github.event.pull_request.head.sha }}"
           --verbose
@@ -106,6 +107,7 @@ jobs:
         if: github.event_name == 'push'
         run: >-
           npm exec --no -- commitlint
+          --config commitlint.config.cjs
           --from "${{ github.event.before }}"
           --to "${{ github.sha }}"
           --verbose

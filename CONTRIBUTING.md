@@ -24,7 +24,7 @@ npm run build
 
 1. Start from the current `main` branch and create a focused branch.
 2. Keep each change scoped to one concern.
-3. Use Conventional Commits with one of the types and scopes accepted by [`.commitlintrc.json`](.commitlintrc.json).
+3. Use Conventional Commits with one of the types and scopes accepted by [`commitlint.config.cjs`](commitlint.config.cjs).
 4. Include a meaningful commit body; repository governance rejects empty bodies.
 5. Do not force-push reviewed branch history unless recovery explicitly requires it.
 6. Open a pull request using the repository template and keep its What, Why, Testing, and Related issues sections accurate.
