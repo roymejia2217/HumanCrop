@@ -1,0 +1,15 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    target-branch: main
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Guayaquil
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "fix(deps)"
+      prefix-development: "fix(deps)"
