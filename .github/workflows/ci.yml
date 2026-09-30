@@ -236,3 +236,31 @@ jobs:
           bash "${UPSTREAM_DIR}/appdir-lint.sh" squashfs-root
 
           sha256sum "${APPIMAGE}"
+
+  required-ci:
+    name: Required CI
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs:
+      - workflow-lint
+      - commit-governance
+      - docs-quality
+      - validate
+      - appimage-contract
+
+    steps:
+      - name: Require all governed CI contracts
+        env:
+          WORKFLOW_LINT_RESULT: ${{ needs.workflow-lint.result }}
+          COMMIT_GOVERNANCE_RESULT: ${{ needs.commit-governance.result }}
+          DOCS_QUALITY_RESULT: ${{ needs.docs-quality.result }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          APPIMAGE_CONTRACT_RESULT: ${{ needs.appimage-contract.result }}
+        run: |
+          set -euo pipefail
+          test "$WORKFLOW_LINT_RESULT" = "success"
+          test "$COMMIT_GOVERNANCE_RESULT" = "success"
+          test "$DOCS_QUALITY_RESULT" = "success"
+          test "$VALIDATE_RESULT" = "success"
+          test "$APPIMAGE_CONTRACT_RESULT" = "success"
