@@ -6,7 +6,7 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.12.0-339933?style=flat&logo=nodedotjs)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
-[![Electron](https://img.shields.io/badge/Electron-40.6.1-47848F?style=flat&logo=electron)](https://www.electronjs.org/)
+[![Electron](https://img.shields.io/badge/Electron-41.10.6-47848F?style=flat&logo=electron)](https://www.electronjs.org/)
 [![TensorFlow.js](https://img.shields.io/badge/TensorFlow.js-4.22.0-FF6F00?style=flat&logo=tensorflow)](https://www.tensorflow.org/js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
