@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { validateReleaseVersionCoherence } = require('./release-version-contract.cjs');
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -137,6 +138,8 @@ function validateWorkflows() {
 function validateReleasePleaseConfig() {
     const config = readJson('release-please-config.json');
     const manifest = readJson('.release-please-manifest.json');
+    const packageJson = readJson('package.json');
+    const packageLock = readJson('package-lock.json');
     const rootPackage = config.packages && config.packages['.'];
 
     assert(config['bootstrap-sha'] === '0ecea98c7f3f00665b899781f1fe299de1cb2e8b', 'Release Please must bootstrap immediately after v1.0.0.');
@@ -148,7 +151,7 @@ function validateReleasePleaseConfig() {
     assert(rootPackage['force-tag-creation'] === true, 'Draft releases must create their tag immediately.');
     assert(rootPackage['pull-request-title-pattern'] === 'chore(main): release ${version}', 'Release PR title must satisfy repository governance.');
     assert(config['group-pull-request-title-pattern'] === 'chore(main): release ${version}', 'Grouped release PR title must satisfy repository governance.');
-    assert(manifest['.'] === '1.0.0', 'Release Please manifest must start from the published v1.0.0 baseline.');
+    validateReleaseVersionCoherence({ packageJson, packageLock, manifest });
 }
 
 function validateReleaseGovernance() {
