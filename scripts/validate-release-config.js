@@ -107,6 +107,12 @@ function validateWorkflows() {
     assert(releaseWorkflow.includes('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c'), 'Release workflow must pin download-artifact v8.0.1.');
     assert(releaseWorkflow.includes('gh release upload'), 'Release workflow must upload verified candidates to the Release Please draft.');
     assert(releaseWorkflow.includes('gh release edit') && releaseWorkflow.includes('--draft=false'), 'Release workflow must publish only after candidate verification.');
+    const windowsBuildIndex = releaseWorkflow.indexOf('  build-windows:');
+    const linuxBuildIndex = releaseWorkflow.indexOf('  build-linux:');
+    const draftReleaseIndex = releaseWorkflow.indexOf('  create-draft-release:');
+    const publishIndex = releaseWorkflow.indexOf('  publish:');
+    assert(windowsBuildIndex >= 0 && linuxBuildIndex >= 0 && draftReleaseIndex > windowsBuildIndex && draftReleaseIndex > linuxBuildIndex, 'Verified candidates must be built before Release Please creates the tag and draft release.');
+    assert(publishIndex > draftReleaseIndex, 'Publication must happen only after the verified draft release exists.');
     assert(!/^\s*uses:\s*[^@\s]+@v\d+/m.test(releaseWorkflow), 'Release workflow actions must be pinned to immutable SHAs.');
 }
 
@@ -118,6 +124,7 @@ function validateReleasePleaseConfig() {
     assert(config['bootstrap-sha'] === '0ecea98c7f3f00665b899781f1fe299de1cb2e8b', 'Release Please must bootstrap immediately after v1.0.0.');
     assert(rootPackage && rootPackage['release-type'] === 'node', 'Release Please root package must use the node strategy.');
     assert(rootPackage['include-component-in-tag'] === false, 'Release tags must remain vX.Y.Z without a component prefix.');
+    assert(rootPackage['include-v-in-tag'] === true, 'Release tags must retain the v prefix.');
     assert(rootPackage.draft === true, 'GitHub releases must remain draft until verified artifacts are attached.');
     assert(rootPackage['draft-pull-request'] === true, 'Release Please pull requests must start as drafts.');
     assert(rootPackage['force-tag-creation'] === true, 'Draft releases must create their tag immediately.');
