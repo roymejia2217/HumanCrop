@@ -22,11 +22,12 @@ Until both values exist, automatic release orchestration stays dormant. Release 
 2. Release Please creates or updates a draft release pull request.
 3. The release pull request must pass normal CI and pull request governance.
 4. Merging the release pull request updates the version, changelog, and manifest.
-5. After `main` CI succeeds, Release Please creates the version tag and a draft GitHub release.
-6. Windows and Linux release candidates are built once from the exact released SHA.
+5. After `main` CI succeeds, the release workflow detects the governed release commit and verifies that the exact SHA previously passed main CI.
+6. Windows and Linux release candidates are built from that exact pending release SHA before any new release tag is created.
 7. Each candidate is validated and recorded with SHA-256.
-8. The publish job downloads those same candidates, verifies the tag target and checksums, uploads the assets, and compares GitHub asset digests.
-9. Only after every verification succeeds is the draft changed to a published release.
+8. Only after both candidate builds pass does Release Please create the version tag and draft GitHub release.
+9. The publish job downloads those same candidates, verifies the tag target and checksums, uploads the assets, and compares GitHub asset digests.
+10. Only after every verification succeeds is the draft changed to a published release.
 
 ## Bootstrap State
 
@@ -42,4 +43,6 @@ The catalog-compatibility correction after `v1.0.0` is a `fix(packaging)` change
 
 Do not move an existing release tag, rebuild an already verified candidate during publication, or publish a draft after a failed verification.
 
-If a build fails, leave the GitHub release in draft state and correct the cause through a governed pull request. If publication partially uploads assets, diagnose the failure before removing any draft assets and retrying. The publish job refuses to overwrite pre-existing assets automatically.
+If a build fails before tag creation, correct the cause through a governed pull request. The next successful `main` CI run can recover the still-untagged release because the workflow locates the governed release commit in history and revalidates its prior CI success.
+
+If publication fails after the draft release exists, diagnose the failure before removing any draft assets and retrying. The publish job refuses to overwrite pre-existing assets automatically.

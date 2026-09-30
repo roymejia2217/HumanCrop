@@ -87,8 +87,17 @@ function validateWorkflows() {
     assert(!releaseWorkflow.includes('workflow_dispatch:'), 'Release workflow must not bypass successful main CI through manual dispatch.');
     assert(!/tags:\s*\n\s*-\s*['"]?v\*\.\*\.\*['"]?/.test(releaseWorkflow), 'Release workflow must not publish directly from tag pushes.');
     assert(!releaseWorkflow.includes('gh release create'), 'Release workflow must not bypass Release Please with gh release create.');
-    assert(releaseWorkflow.includes('actions/create-github-app-token@'), 'Release workflow must use a scoped GitHub App identity.');
+    assert(releaseWorkflow.includes('actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1'), 'GitHub App token action must be pinned to v3.2.0 SHA.');
+    assert(releaseWorkflow.includes('HUMANCROP_RELEASE_APP_CLIENT_ID') && releaseWorkflow.includes('HUMANCROP_RELEASE_APP_PRIVATE_KEY'), 'Release workflow must require the dedicated HumanCrop GitHub App identity.');
     assert(releaseWorkflow.includes('googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7'), 'Release Please action must be pinned to v5.0.0 SHA.');
+    assert(releaseWorkflow.includes('skip-github-release: true'), 'Release PR orchestration must not create a tag or GitHub release before candidate verification.');
+    assert(releaseWorkflow.includes('skip-github-pull-request: true'), 'Final release creation must not create or update another release PR.');
+    assert(releaseWorkflow.includes('skip-github-release: true'), 'Release PR orchestration must not create a tag before candidate verification.');
+    assert(releaseWorkflow.includes('skip-github-pull-request: true'), 'Post-build release creation must not create a second release PR.');
+    assert(releaseWorkflow.includes('actions: read'), 'Release detection must be able to verify prior CI status for a pending release SHA.');
+    assert(releaseWorkflow.includes('actions/runs'), 'Release detection must verify successful main CI for the pending release SHA.');
+    assert(releaseWorkflow.includes('pending_release'), 'Release workflow must model pending release state explicitly.');
+    assert(/create-draft-release:[\s\S]*?needs:[\s\S]*?- build-windows[\s\S]*?- build-linux/.test(releaseWorkflow), 'Draft release creation must depend on both verified candidate builds.');
     assert(releaseWorkflow.includes('release-please-config.json'), 'Release workflow must use the governed Release Please config.');
     assert(releaseWorkflow.includes('.release-please-manifest.json'), 'Release workflow must use the governed Release Please manifest.');
     assert(releaseWorkflow.includes('npm run dist:win'), 'Release workflow must build Windows artifacts once.');
