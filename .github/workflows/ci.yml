@@ -238,7 +238,7 @@ jobs:
           "${APPIMAGE}" --appimage-extract >/dev/null
           APPSTREAM_FILE="squashfs-root/usr/share/metainfo/com.rjmejia.humancrop.appdata.xml"
           test -f "${APPSTREAM_FILE}"
-          appstreamcli validate --pedantic "${APPSTREAM_FILE}"
+          appstreamcli validate-tree --pedantic squashfs-root
           bash "${UPSTREAM_DIR}/appdir-lint.sh" squashfs-root
 
           sha256sum "${APPIMAGE}"
