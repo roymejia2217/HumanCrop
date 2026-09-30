@@ -10,6 +10,7 @@ on:
       - main
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -47,17 +48,90 @@ jobs:
           echo "configured=false" >> "$GITHUB_OUTPUT"
           echo "::notice::Dedicated HumanCrop release GitHub App is not configured; release orchestration remains dormant."
 
-  release-please:
-    name: Orchestrate Semantic Release
+  release-detection:
+    name: Detect Pending Release
     needs: release-identity
     if: ${{ needs.release-identity.outputs.configured == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 5
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
-      sha: ${{ steps.release.outputs.sha }}
+      pending_release: ${{ steps.detect.outputs.pending_release }}
+      version: ${{ steps.detect.outputs.version }}
+      sha: ${{ steps.detect.outputs.sha }}
+
+    steps:
+      - name: Checkout candidate revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect governed pending release
+        id: detect
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          VERSION="$(jq -r '.version' package.json)"
+          LOCK_VERSION="$(jq -r '.version' package-lock.json)"
+          MANIFEST_VERSION="$(jq -r '."."' .release-please-manifest.json)"
+
+          if [[ "$VERSION" != "$LOCK_VERSION" || "$VERSION" != "$MANIFEST_VERSION" ]]; then
+            echo "Version files disagree: package=$VERSION lock=$LOCK_VERSION manifest=$MANIFEST_VERSION" >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::notice::v$VERSION already exists; no release is pending."
+            echo "sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+            echo "pending_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          EXPECTED_SUBJECT="chore(main): release $VERSION"
+          RELEASE_SHA="$(git log --format='%H%x09%s' | awk -F '\t' -v expected="$EXPECTED_SUBJECT" '$2 == expected {print $1; exit}')"
+          if [[ -z "$RELEASE_SHA" ]]; then
+            echo "Version $VERSION has no tag and no governed release commit." >&2
+            exit 1
+          fi
+
+          git merge-base --is-ancestor "$RELEASE_SHA" "$CURRENT_SHA"
+
+          RELEASE_PACKAGE_VERSION="$(git show "${RELEASE_SHA}:package.json" | jq -r '.version')"
+          RELEASE_LOCK_VERSION="$(git show "${RELEASE_SHA}:package-lock.json" | jq -r '.version')"
+          RELEASE_MANIFEST_VERSION="$(git show "${RELEASE_SHA}:.release-please-manifest.json" | jq -r '."."')"
+          if [[ "$RELEASE_PACKAGE_VERSION" != "$VERSION" || "$RELEASE_LOCK_VERSION" != "$VERSION" || "$RELEASE_MANIFEST_VERSION" != "$VERSION" ]]; then
+            echo "Release commit version state does not match $VERSION." >&2
+            exit 1
+          fi
+
+          SUCCESSFUL_CI_RUNS="$(gh api --method GET "repos/${REPOSITORY}/actions/runs" \
+            -f head_sha="$RELEASE_SHA" \
+            -f event=push \
+            -f status=completed \
+            -f per_page=100 \
+            --jq '[.workflow_runs[] | select(.name == "CI" and .head_branch == "main" and .conclusion == "success")] | length')"
+          if [[ "$SUCCESSFUL_CI_RUNS" -lt 1 ]]; then
+            echo "Release commit $RELEASE_SHA has no successful main CI push run." >&2
+            exit 1
+          fi
+
+          echo "::notice::Pending governed release v$VERSION at $RELEASE_SHA."
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "pending_release=true" >> "$GITHUB_OUTPUT"
+
+  release-pr:
+    name: Maintain Release Please PR
+    needs: release-detection
+    if: ${{ needs.release-detection.outputs.pending_release != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
 
     steps:
       - name: Create scoped release GitHub App token
@@ -70,18 +144,18 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
-      - name: Run Release Please
-        id: release
+      - name: Create or update draft release pull request
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ steps.release-app-token.outputs.token }}
+          skip-github-release: true
 
   build-windows:
     name: Build Verified Windows Candidate
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    needs: release-detection
+    if: ${{ needs.release-detection.outputs.pending_release == 'true' }}
     runs-on: windows-2025
     timeout-minutes: 45
 
@@ -89,7 +163,7 @@ jobs:
       - name: Checkout released revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.sha }}
+          ref: ${{ needs.release-detection.outputs.sha }}
           lfs: true
           persist-credentials: false
 
@@ -111,7 +185,7 @@ jobs:
       - name: Verify Windows candidate and record SHA-256
         shell: pwsh
         env:
-          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          RELEASE_VERSION: ${{ needs.release-detection.outputs.version }}
         run: |
           $ErrorActionPreference = "Stop"
           $exe = Join-Path "release" "HumanCrop-$env:RELEASE_VERSION-win-x64.exe"
@@ -136,8 +210,8 @@ jobs:
         with:
           name: windows-release-candidate
           path: |
-            release/HumanCrop-${{ needs.release-please.outputs.version }}-win-x64.exe
-            release/HumanCrop-${{ needs.release-please.outputs.version }}-win-x64.exe.blockmap
+            release/HumanCrop-${{ needs.release-detection.outputs.version }}-win-x64.exe
+            release/HumanCrop-${{ needs.release-detection.outputs.version }}-win-x64.exe.blockmap
             release/SHA256SUMS-windows.txt
           if-no-files-found: error
           compression-level: 0
@@ -145,8 +219,8 @@ jobs:
 
   build-linux:
     name: Build Verified Linux Candidates
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    needs: release-detection
+    if: ${{ needs.release-detection.outputs.pending_release == 'true' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 45
 
@@ -154,7 +228,7 @@ jobs:
       - name: Checkout released revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.sha }}
+          ref: ${{ needs.release-detection.outputs.sha }}
           lfs: true
           persist-credentials: false
 
@@ -168,11 +242,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            appstream \
-            desktop-file-utils \
-            libarchive-tools \
-            libfile-mimeinfo-perl \
-            squashfs-tools
+            appstream desktop-file-utils libarchive-tools \
+            libfile-mimeinfo-perl squashfs-tools
 
       - name: Install dependencies
         run: npm ci
@@ -202,7 +273,7 @@ jobs:
       - name: Verify Linux candidates and record SHA-256
         shell: bash
         env:
-          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          RELEASE_VERSION: ${{ needs.release-detection.outputs.version }}
         run: |
           set -euo pipefail
           APPIMAGE="release/HumanCrop-${RELEASE_VERSION}-x86_64.AppImage"
@@ -242,20 +313,71 @@ jobs:
         with:
           name: linux-release-candidate
           path: |
-            release/HumanCrop-${{ needs.release-please.outputs.version }}-x86_64.AppImage
-            release/HumanCrop-${{ needs.release-please.outputs.version }}-linux-amd64.deb
+            release/HumanCrop-${{ needs.release-detection.outputs.version }}-x86_64.AppImage
+            release/HumanCrop-${{ needs.release-detection.outputs.version }}-linux-amd64.deb
             release/SHA256SUMS-linux.txt
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
 
+  create-draft-release:
+    name: Create Verified Draft Release
+    needs:
+      - release-detection
+      - build-windows
+      - build-linux
+    if: ${{ needs.release-detection.outputs.pending_release == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+
+    steps:
+      - name: Create scoped release GitHub App token
+        id: release-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.HUMANCROP_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HUMANCROP_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Create Release Please tag and draft release
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          token: ${{ steps.release-app-token.outputs.token }}
+          skip-github-pull-request: true
+
+      - name: Verify Release Please outputs
+        shell: bash
+        env:
+          RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          EXPECTED_VERSION: ${{ needs.release-detection.outputs.version }}
+          EXPECTED_SHA: ${{ needs.release-detection.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_CREATED" == "true" ]]
+          [[ "$RELEASE_VERSION" == "$EXPECTED_VERSION" ]]
+          [[ "$RELEASE_TAG" == "v$EXPECTED_VERSION" ]]
+          [[ "$RELEASE_SHA" == "$EXPECTED_SHA" ]]
+
   publish:
     name: Publish Verified Release
     needs:
-      - release-please
+      - create-draft-release
       - build-windows
       - build-linux
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.create-draft-release.outputs.release_created == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -284,33 +406,25 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ steps.publish-app-token.outputs.token }}
-          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
-          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
-          RELEASE_SHA: ${{ needs.release-please.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.create-draft-release.outputs.version }}
+          RELEASE_TAG: ${{ needs.create-draft-release.outputs.tag_name }}
+          RELEASE_SHA: ${{ needs.create-draft-release.outputs.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          EXPECTED_TAG="v${RELEASE_VERSION}"
-          [[ "$RELEASE_TAG" == "$EXPECTED_TAG" ]]
+          [[ "$RELEASE_TAG" == "v$RELEASE_VERSION" ]]
 
           WINDOWS_EXE="candidate/windows/HumanCrop-${RELEASE_VERSION}-win-x64.exe"
           WINDOWS_BLOCKMAP="${WINDOWS_EXE}.blockmap"
           APPIMAGE="candidate/linux/HumanCrop-${RELEASE_VERSION}-x86_64.AppImage"
           DEB="candidate/linux/HumanCrop-${RELEASE_VERSION}-linux-amd64.deb"
-
           test -f "$WINDOWS_EXE"
           test -f "$WINDOWS_BLOCKMAP"
           test -f "$APPIMAGE"
           test -f "$DEB"
 
-          (
-            cd candidate/windows
-            sha256sum --check SHA256SUMS-windows.txt
-          )
-          (
-            cd candidate/linux
-            sha256sum --check SHA256SUMS-linux.txt
-          )
+          (cd candidate/windows && sha256sum --check SHA256SUMS-windows.txt)
+          (cd candidate/linux && sha256sum --check SHA256SUMS-linux.txt)
 
           ACTUAL_SHA="$(gh api "repos/${REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha')"
           if [[ "$ACTUAL_SHA" != "$RELEASE_SHA" ]]; then
@@ -334,8 +448,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ steps.publish-app-token.outputs.token }}
-          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
-          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_VERSION: ${{ needs.create-draft-release.outputs.version }}
+          RELEASE_TAG: ${{ needs.create-draft-release.outputs.tag_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -345,15 +459,14 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ steps.publish-app-token.outputs.token }}
-          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
-          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_VERSION: ${{ needs.create-draft-release.outputs.version }}
+          RELEASE_TAG: ${{ needs.create-draft-release.outputs.tag_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/tags/${RELEASE_TAG}")"
-          EXPECTED_COUNT=5
           ACTUAL_COUNT="$(jq '.assets | length' <<< "$RELEASE_JSON")"
-          [[ "$ACTUAL_COUNT" == "$EXPECTED_COUNT" ]]
+          [[ "$ACTUAL_COUNT" == "5" ]]
 
           FILES=(
             "candidate/windows/HumanCrop-${RELEASE_VERSION}-win-x64.exe"
@@ -377,14 +490,10 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ steps.publish-app-token.outputs.token }}
-          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_TAG: ${{ needs.create-draft-release.outputs.tag_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release edit "$RELEASE_TAG"             --repo "$REPOSITORY"             --draft=false             --latest
-
+          gh release edit "$RELEASE_TAG" --repo "$REPOSITORY" --draft=false --latest
           FINAL_DRAFT="$(gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json isDraft --jq '.isDraft')"
-          if [[ "$FINAL_DRAFT" != "false" ]]; then
-            echo "Release remained in draft state after publication." >&2
-            exit 1
-          fi
+          [[ "$FINAL_DRAFT" == "false" ]]
