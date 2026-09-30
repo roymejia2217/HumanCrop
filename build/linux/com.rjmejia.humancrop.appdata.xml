@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.rjmejia.humancrop</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>HumanCrop</name>
+  <summary>Offline AI biometric photo cropper</summary>
+  <developer id="com.rjmejia">
+    <name>RJ Mejia</name>
+  </developer>
+  <description>
+    <p>HumanCrop is a privacy-first desktop application for offline batch processing of official ID and passport photos using AI-assisted biometric cropping and background removal.</p>
+  </description>
+  <launchable type="desktop-id">humancrop.desktop</launchable>
+  <provides>
+    <binary>humancrop</binary>
+  </provides>
+  <categories>
+    <category>Graphics</category>
+  </categories>
+  <url type="homepage">https://github.com/roymejia2217/HumanCrop</url>
+  <url type="bugtracker">https://github.com/roymejia2217/HumanCrop/issues</url>
+  <releases>
+    <release version="1.0.0" date="2026-05-13"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>
