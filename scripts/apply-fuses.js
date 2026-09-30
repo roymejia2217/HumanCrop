@@ -1,5 +1,6 @@
 const { flipFuses, FuseVersion, FuseV1Options } = require('@electron/fuses');
 const path = require('path');
+const { syncLinuxAppStreamMetadata } = require('./linux-appstream');
 
 /** 
  * Post-packaging script to apply Electron Fuses.
@@ -35,4 +36,6 @@ exports.default = async function(context) {
     });
     
     console.log(`[Fuses] Security Fuses applied successfully.`);
+
+    await syncLinuxAppStreamMetadata(context);
 };

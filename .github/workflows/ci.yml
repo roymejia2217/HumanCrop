@@ -171,6 +171,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate AppStream metadata
+        run: appstreamcli validate --pedantic build/linux/com.rjmejia.humancrop.appdata.xml
+
       - name: Build production AppImage
         run: |
           npm run validate:models
@@ -233,6 +236,9 @@ jobs:
 
           rm -rf squashfs-root
           "${APPIMAGE}" --appimage-extract >/dev/null
+          APPSTREAM_FILE="squashfs-root/usr/share/metainfo/com.rjmejia.humancrop.appdata.xml"
+          test -f "${APPSTREAM_FILE}"
+          appstreamcli validate --pedantic "${APPSTREAM_FILE}"
           bash "${UPSTREAM_DIR}/appdir-lint.sh" squashfs-root
 
           sha256sum "${APPIMAGE}"

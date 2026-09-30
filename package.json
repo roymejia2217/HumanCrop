@@ -20,8 +20,8 @@
     "pack": "electron-builder --dir",
     "dist": "npm run validate:models && npm run build && electron-builder",
     "dist:win": "npm run validate:models && npm run build && electron-builder --win nsis",
-    "dist:linux": "npm run validate:models && npm run build && electron-builder --linux AppImage deb",
-    "dist:all": "npm run validate:models && npm run build && electron-builder --win nsis --linux AppImage deb",
+    "dist:linux": "npm run validate:models && npm run build && electron-builder --linux AppImage --publish never && electron-builder --linux deb --publish never",
+    "dist:all": "npm run validate:models && npm run build && electron-builder --win nsis --publish never && electron-builder --linux AppImage --publish never && electron-builder --linux deb --publish never",
     "postinstall": "electron-builder install-app-deps",
     "prepare": "husky",
     "lint:docs": "remark README.md CONTRIBUTING.md docs/RELEASING.md --frail"
