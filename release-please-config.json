@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/v17.6.0/schemas/config.json",
+  "bootstrap-sha": "0ecea98c7f3f00665b899781f1fe299de1cb2e8b",
+  "always-update": true,
+  "group-pull-request-title-pattern": "chore(main): release ${version}",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "draft-pull-request": true,
+      "draft": true,
+      "force-tag-creation": true,
+      "pull-request-title-pattern": "chore(main): release ${version}"
+    }
+  }
+}

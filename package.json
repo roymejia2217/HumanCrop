@@ -24,7 +24,7 @@
     "dist:all": "npm run validate:models && npm run build && electron-builder --win nsis --linux AppImage deb",
     "postinstall": "electron-builder install-app-deps",
     "prepare": "husky",
-    "lint:docs": "remark README.md CONTRIBUTING.md --frail"
+    "lint:docs": "remark README.md CONTRIBUTING.md docs/RELEASING.md --frail"
   },
   "build": {
     "appId": "com.rjmejia.humancrop",
