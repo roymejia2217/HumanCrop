@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { validateReleaseVersionCoherence } = require('./release-version-contract.cjs');
+const { hasReleasePleaseMainScope } = require('./release-governance-contract.cjs');
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -163,7 +164,7 @@ function validateReleaseGovernance() {
     assert(Array.isArray(scopes) && scopes.includes('main'), 'Commitlint must allow Release Please scope main.');
     assert(Array.isArray(commitlint.ignores) && commitlint.ignores.some(ignore => ignore('chore(main): release 1.0.1')), 'Commitlint must narrowly ignore the exact Release Please commit shape.');
     assert(!commitlint.ignores.some(ignore => ignore('chore(main): release candidate')), 'Release commit ignore must not accept non-SemVer messages.');
-    assert(/scopes:[\s\S]*?\n\s+main(?:\n|$)/.test(prGovernance), 'PR Governance must allow Release Please scope main.');
+    assert(hasReleasePleaseMainScope(prGovernance), 'PR Governance must allow Release Please scope main.');
 }
 
 function validateLockfilePolicy() {
