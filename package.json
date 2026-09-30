@@ -1,7 +1,7 @@
 {
   "name": "humancrop",
   "version": "1.0.0",
-  "description": "High-performance, privacy-first desktop application for offline batch processing of official ID photos using AI biometric cropping and background removal.",
+  "description": "High-performance desktop app designed for the automated batch processing of official ID and passport photos",
   "main": "dist/main.js",
   "author": {
     "name": "RJ Mejia"
@@ -23,7 +23,8 @@
     "dist:linux": "npm run validate:models && npm run build && electron-builder --linux AppImage deb",
     "dist:all": "npm run validate:models && npm run build && electron-builder --win nsis --linux AppImage deb",
     "postinstall": "electron-builder install-app-deps",
-    "prepare": "husky"
+    "prepare": "husky",
+    "lint:docs": "remark README.md CONTRIBUTING.md --frail"
   },
   "build": {
     "appId": "com.rjmejia.humancrop",
@@ -108,6 +109,15 @@
     "electron": "^40.6.1",
     "electron-builder": "^24.13.3",
     "husky": "9.1.7",
+    "remark-cli": "12.0.1",
+    "remark-preset-lint-consistent": "6.0.1",
+    "remark-preset-lint-recommended": "7.0.1",
     "typescript": "^5.3.3"
+  },
+  "remarkConfig": {
+    "plugins": [
+      "remark-preset-lint-consistent",
+      "remark-preset-lint-recommended"
+    ]
   }
 }
