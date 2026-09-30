@@ -243,6 +243,129 @@ jobs:
 
           sha256sum "${APPIMAGE}"
 
+  deb-package-contract:
+    name: DEB Package Contract
+    needs:
+      - commit-governance
+      - docs-quality
+      - validate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          lfs: true
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Debian packaging tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libarchive-tools
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production DEB
+        run: |
+          npm run validate:models
+          npm run build
+          npm exec -- electron-builder --linux deb --publish never
+
+      - name: Validate DEB package contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          DEB="release/HumanCrop-${VERSION}-linux-amd64.deb"
+          test -f "${DEB}"
+
+          PACKAGE_NAME="$(dpkg-deb --field "${DEB}" Package)"
+          PACKAGE_VERSION="$(dpkg-deb --field "${DEB}" Version)"
+          PACKAGE_ARCH="$(dpkg-deb --field "${DEB}" Architecture)"
+          [[ "${PACKAGE_NAME}" == "humancrop" ]]
+          [[ "${PACKAGE_VERSION}" == "${VERSION}" ]]
+          [[ "${PACKAGE_ARCH}" == "amd64" ]]
+
+          CONTENTS="$(dpkg-deb --contents "${DEB}")"
+          grep -Eq '/usr/share/applications/humancrop\.desktop$' <<< "${CONTENTS}"
+          if grep -Eq '/opt/.*/usr/share/metainfo/com\.rjmejia\.humancrop\.appdata\.xml$' <<< "${CONTENTS}"; then
+            echo 'AppImage-only AppStream metadata leaked into the DEB application prefix.' >&2
+            exit 1
+          fi
+
+          sha256sum "${DEB}"
+
+  windows-package-contract:
+    name: Windows Package Contract
+    needs:
+      - commit-governance
+      - docs-quality
+      - validate
+    runs-on: windows-2025
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          lfs: true
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production Windows installer
+        run: |
+          npm run validate:models
+          npm run build
+          npm exec -- electron-builder --win nsis --publish never
+
+      - name: Validate Windows package contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = node -p "require('./package.json').version"
+          $exe = Join-Path "release" "HumanCrop-$version-win-x64.exe"
+          $blockmap = "$exe.blockmap"
+
+          if (-not (Test-Path -LiteralPath $exe)) {
+            throw "Missing expected Windows installer: $exe"
+          }
+          if (-not (Test-Path -LiteralPath $blockmap)) {
+            throw "Missing expected Windows blockmap: $blockmap"
+          }
+
+          $stream = [IO.File]::OpenRead($exe)
+          try {
+            $first = $stream.ReadByte()
+            $second = $stream.ReadByte()
+          } finally {
+            $stream.Dispose()
+          }
+          if ($first -ne 0x4D -or $second -ne 0x5A) {
+            throw "Windows installer does not have an MZ PE header."
+          }
+          if ((Get-Item -LiteralPath $exe).Length -lt 1MB) {
+            throw "Windows installer is unexpectedly small."
+          }
+
+          Get-FileHash -Algorithm SHA256 -LiteralPath $exe
+          Get-FileHash -Algorithm SHA256 -LiteralPath $blockmap
+
   required-ci:
     name: Required CI
     if: always()
@@ -254,6 +377,8 @@ jobs:
       - docs-quality
       - validate
       - appimage-contract
+      - deb-package-contract
+      - windows-package-contract
 
     steps:
       - name: Require all governed CI contracts
@@ -263,6 +388,8 @@ jobs:
           DOCS_QUALITY_RESULT: ${{ needs.docs-quality.result }}
           VALIDATE_RESULT: ${{ needs.validate.result }}
           APPIMAGE_CONTRACT_RESULT: ${{ needs.appimage-contract.result }}
+          DEB_CONTRACT_RESULT: ${{ needs.deb-package-contract.result }}
+          WINDOWS_CONTRACT_RESULT: ${{ needs.windows-package-contract.result }}
         run: |
           set -euo pipefail
           test "$WORKFLOW_LINT_RESULT" = "success"
@@ -270,3 +397,5 @@ jobs:
           test "$DOCS_QUALITY_RESULT" = "success"
           test "$VALIDATE_RESULT" = "success"
           test "$APPIMAGE_CONTRACT_RESULT" = "success"
+          test "$DEB_CONTRACT_RESULT" = "success"
+          test "$WINDOWS_CONTRACT_RESULT" = "success"
