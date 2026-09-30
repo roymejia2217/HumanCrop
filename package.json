@@ -99,7 +99,7 @@
     "i18next-fs-backend": "^2.6.8",
     "lucide": "^0.575.0",
     "onnxruntime-node": "1.17.3",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",
