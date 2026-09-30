@@ -80,7 +80,7 @@ jobs:
           LOCK_VERSION="$(jq -r '.version' package-lock.json)"
           MANIFEST_VERSION="$(jq -r '."."' .release-please-manifest.json)"
 
-          if [[ "$VERSION" != "$LOCK_VERSION" || "$VERSION" != "$MANIFEST_VERSION" ]]; then
+          if [[ "$VERSION" != "$LOCK_VERSION" ]] || [[ "$VERSION" != "$MANIFEST_VERSION" ]]; then
             echo "Version files disagree: package=$VERSION lock=$LOCK_VERSION manifest=$MANIFEST_VERSION" >&2
             exit 1
           fi
