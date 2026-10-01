@@ -183,7 +183,10 @@ jobs:
         run: npm test
 
       - name: Build Windows installer
-        run: npm run dist:win
+        run: |
+          npm run validate:models
+          npm run build
+          npm exec -- electron-builder --win nsis --publish never
 
       - name: Verify Windows candidate and record SHA-256
         shell: pwsh

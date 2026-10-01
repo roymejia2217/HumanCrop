@@ -109,7 +109,8 @@ function validateWorkflows() {
     assert(/create-draft-release:[\s\S]*?needs:[\s\S]*?- build-windows[\s\S]*?- build-linux/.test(releaseWorkflow), 'Draft release creation must depend on both verified candidate builds.');
     assert(releaseWorkflow.includes('release-please-config.json'), 'Release workflow must use the governed Release Please config.');
     assert(releaseWorkflow.includes('.release-please-manifest.json'), 'Release workflow must use the governed Release Please manifest.');
-    assert(releaseWorkflow.includes('npm run dist:win'), 'Release workflow must build Windows artifacts once.');
+    assert(releaseWorkflow.includes('npm exec -- electron-builder --win nsis --publish never'), 'Release workflow must build Windows candidates with explicit no-publish mode.');
+    assert(!releaseWorkflow.includes('npm run dist:win'), 'Release workflow must not delegate Windows candidate packaging to dist:win.');
     assert(releaseWorkflow.includes('npm run dist:linux'), 'Release workflow must build Linux artifacts once.');
     assert(releaseWorkflow.includes('sha256sum') || releaseWorkflow.includes('Get-FileHash'), 'Release workflow must record SHA-256 for release candidates.');
     assert(releaseWorkflow.includes('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'), 'Release workflow must pin upload-artifact v7.0.1.');
