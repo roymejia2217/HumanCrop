@@ -95,7 +95,7 @@ jobs:
           fi
 
           EXPECTED_SUBJECT="chore(main): release $VERSION"
-          RELEASE_SHA="$(git log --format='%H%x09%s' | awk -F '\t' -v expected="$EXPECTED_SUBJECT" '$2 == expected {print $1; exit}')"
+          RELEASE_SHA="$(git log --format='%H%x09%s' | awk -F '\t' -v expected="$EXPECTED_SUBJECT" '$2 == expected && !found {print $1; found=1}')"
           if [[ -z "$RELEASE_SHA" ]]; then
             echo "Version $VERSION has no tag and no governed release commit." >&2
             exit 1
