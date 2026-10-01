@@ -39,3 +39,18 @@ test('Windows release checkout preserves repository line endings before checkout
     'line-ending policy must be applied before actions/checkout',
   );
 });
+
+test('Windows release build uses explicit no-publish packaging', () => {
+  const job = windowsReleaseJob();
+
+  assert.doesNotMatch(
+    job,
+    /npm run dist:win/,
+    'release workflow must not delegate Windows packaging to a historical script',
+  );
+  assert.match(
+    job,
+    /npm run validate:models[\s\S]*npm run build[\s\S]*npm exec -- electron-builder --win nsis --publish never/,
+    'release workflow must validate, build, and package with publishing disabled',
+  );
+});
