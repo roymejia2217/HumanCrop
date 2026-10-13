@@ -203,11 +203,16 @@ jobs:
       - name: Validate AppStream metadata
         run: appstreamcli validate --pedantic build/linux/com.rjmejia.humancrop.appdata.xml
 
-      - name: Build production AppImage
+      - name: Validate models and compile application
         run: |
           npm run validate:models
           npm run build
-          npm exec -- electron-builder --linux AppImage --publish never
+
+      - name: Smoke-test production AI worker with bundled models
+        run: node --test tests/integration/ai-worker.smoke.cjs
+
+      - name: Build production AppImage
+        run: npm exec -- electron-builder --linux AppImage --publish never
 
       - name: Fetch pinned AppImage upstream checks
         shell: bash
