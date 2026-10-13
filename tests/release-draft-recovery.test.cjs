@@ -76,7 +76,10 @@ test('recovery remains fail-closed and cannot bypass release governance', () => 
   assert.match(recovery, /needs: release-detection/);
   assert.match(recovery, /outputs\.recover_release == 'true'/);
   assert.match(recovery, /set -Eeuo pipefail/);
-  assert.match(recovery, /trap 'status=\$\?;[^'\n]*' ERR/);
+  assert.match(recovery, /report_recovery_error\(\) \{/);
+  assert.match(recovery, /local exit_status=\$\?/);
+  assert.match(recovery, /trap report_recovery_error ERR/);
+  assert.doesNotMatch(recovery, /trap 'status=/);
   assert.match(recovery, /fail_recovery\(\)/);
   assert.match(recovery, /RELEASE_SHA/);
   assert.match(recovery, /RELEASE_TAG/);
