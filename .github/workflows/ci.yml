@@ -135,6 +135,26 @@ jobs:
       - name: Validate release configuration
         run: npm test
 
+      - name: Install supported Bash verification tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y bats ruby shellcheck
+
+      - name: Execute actual draft recovery logic with Bats-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -ryaml -e '
+            workflow = YAML.load_file(".github/workflows/release.yml")
+            steps = workflow.fetch("jobs").fetch("recover-draft-release").fetch("steps")
+            step = steps.find { |entry| entry["name"] == "Verify existing draft assets and complete governed publication" }
+            abort "Missing production recovery step" unless step && step["run"].is_a?(String)
+            print step.fetch("run")
+          ' > "$RUNNER_TEMP/humancrop-recover-draft.sh"
+          bash -n "$RUNNER_TEMP/humancrop-recover-draft.sh"
+          shellcheck -s bash "$RUNNER_TEMP/humancrop-recover-draft.sh"
+          RECOVERY_SCRIPT="$RUNNER_TEMP/humancrop-recover-draft.sh" bats tests/release-draft-recovery.bats
+
       - name: Build TypeScript
         run: npm run build
 
