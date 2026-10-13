@@ -46,7 +46,7 @@ function buildDesktopEntry(context) {
     'Terminal=false',
     'Type=Application',
     `Icon=${executableName}`,
-    `StartupWMClass=${productName}`,
+    `StartupWMClass=${executableName}`,
     `Comment=${comment}`,
     `Categories=${category};`,
     `X-AppImage-Version=${version}`,
