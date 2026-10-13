@@ -54,11 +54,13 @@ teardown() {
   [ "$status" -eq 0 ]
   [ -f "$GH_TEST_PUBLISHED" ]
 }
-@test "refuses mismatched tag commit" {
+@test "refuses mismatched tag commit and identifies failing gate" {
   jq '.object.sha="different"' "$GH_TEST_TAG_JSON" > "$GH_TEST_ROOT/tmp"
   mv "$GH_TEST_ROOT/tmp" "$GH_TEST_TAG_JSON"
   run bash "$script"
   [ "$status" -ne 0 ]
+  [[ "$output" == *"::error::Draft recovery failed at stage tag_identity"* ]]
+  [[ "$output" != *"$GH_TOKEN"* ]]
   [ ! -f "$GH_TEST_PUBLISHED" ]
 }
 @test "refuses already published release" {
@@ -89,11 +91,12 @@ teardown() {
   [ "$status" -ne 0 ]
   [ ! -f "$GH_TEST_PUBLISHED" ]
 }
-@test "refuses server-side digest mismatch" {
+@test "refuses server-side digest mismatch and identifies failing gate" {
   jq '.assets[0].digest="sha256:bad"' "$GH_TEST_RELEASE_JSON" > "$GH_TEST_ROOT/tmp"
   mv "$GH_TEST_ROOT/tmp" "$GH_TEST_RELEASE_JSON"
   run bash "$script"
   [ "$status" -ne 0 ]
+  [[ "$output" == *"::error::Draft recovery failed at stage asset_digests"* ]]
   [ ! -f "$GH_TEST_PUBLISHED" ]
 }
 @test "refuses altered downloaded checksum manifest" {
