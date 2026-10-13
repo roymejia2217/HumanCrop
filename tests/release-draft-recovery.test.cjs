@@ -36,7 +36,7 @@ test('tagged draft recovery requires a guarded, unique release identity', () => 
   assert.match(detect, /target_commitish/);
   assert.match(detect, /length == 1/);
   assert.match(detect, /RECOVER_RELEASE=true/);
-  assert.match(detect, /printf 'recover_release=%s\\n' "\\$RECOVER_RELEASE"/);
+  assert.match(detect, /printf 'recover_release=%s\\n' "\$RECOVER_RELEASE"/);
   assert.match(job('release-pr'), /recover_release != 'true'/);
 });
 
