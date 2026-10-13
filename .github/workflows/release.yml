@@ -137,24 +137,28 @@ jobs:
               exit 1
             fi
 
-            echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
-            echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
-            echo "pending_release=false" >> "$GITHUB_OUTPUT"
             if [[ "$IS_DRAFT" == "true" ]]; then
               echo "::notice::Recovering incomplete verified draft v$VERSION (release $RELEASE_ID)."
-              echo "recover_release=true" >> "$GITHUB_OUTPUT"
+              RECOVER_RELEASE=true
             else
               echo "::notice::v$VERSION is already published."
-              echo "recover_release=false" >> "$GITHUB_OUTPUT"
+              RECOVER_RELEASE=false
             fi
+            {
+              printf 'release_id=%s\n' "$RELEASE_ID"
+              printf 'sha=%s\n' "$RELEASE_SHA"
+              printf 'pending_release=false\n'
+              printf 'recover_release=%s\n' "$RECOVER_RELEASE"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "recover_release=false" >> "$GITHUB_OUTPUT"
-
           echo "::notice::Pending governed release v$VERSION at $RELEASE_SHA."
-          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
-          echo "pending_release=true" >> "$GITHUB_OUTPUT"
+          {
+            printf 'recover_release=false\n'
+            printf 'sha=%s\n' "$RELEASE_SHA"
+            printf 'pending_release=true\n'
+          } >> "$GITHUB_OUTPUT"
 
   release-pr:
     name: Maintain Release Please PR
