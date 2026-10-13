@@ -35,8 +35,19 @@ test('tagged draft recovery requires a guarded, unique release identity', () => 
   assert.match(detect, /git\/ref\/tags/);
   assert.match(detect, /target_commitish/);
   assert.match(detect, /length == 1/);
-  assert.match(detect, /recover_release=true/);
+  assert.match(detect, /RECOVER_RELEASE=true/);
+  assert.match(detect, /printf 'recover_release=%s\\n' "\\$RECOVER_RELEASE"/);
   assert.match(job('release-pr'), /recover_release != 'true'/);
+});
+
+test('draft discovery uses a narrowly scoped App token while CI keeps Actions read', () => {
+  const detect = job('release-detection');
+  assert.match(detect, /id: draft-app-token/);
+  assert.match(detect, /permission-contents: write/);
+  assert.doesNotMatch(detect, /permission-workflows: write/);
+  assert.match(detect, /GH_TOKEN: \$\{\{ github.token \}\}/);
+  assert.match(detect, /DRAFT_TOKEN: \$\{\{ steps.draft-app-token.outputs.token \}\}/);
+  assert.match(detect, /GH_TOKEN="\$DRAFT_TOKEN" gh api "repos\/\$\{REPOSITORY\}\/releases\?per_page=100"/);
 });
 
 test('recovery validates existing immutable assets before publishing', () => {
