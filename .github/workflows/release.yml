@@ -455,7 +455,11 @@ jobs:
         run: |
           set -Eeuo pipefail
           RECOVERY_STAGE=input_identity
-          trap 'status=$?; printf "::error::Draft recovery failed at stage %s (exit %s)\n" "$RECOVERY_STAGE" "$status" >&2' ERR
+          report_recovery_error() {
+            local exit_status=$?
+            printf '::error::Draft recovery failed at stage %s (exit %s)\n' "$RECOVERY_STAGE" "$exit_status" >&2
+          }
+          trap report_recovery_error ERR
           fail_recovery() {
             printf '::error::Draft recovery failed at stage %s: %s\n' "$RECOVERY_STAGE" "$1" >&2
             exit 1
