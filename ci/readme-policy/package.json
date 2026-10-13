@@ -1,0 +1,15 @@
+{
+  "name": "humancrop-readme-policy",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Official Standard Readme preset and remark-lint verification with audited dependencies.",
+  "scripts": {
+    "lint:readme": "node verify.mjs"
+  },
+  "devDependencies": {
+    "remark": "15.0.1",
+    "remark-preset-lint-consistent": "6.0.1",
+    "remark-preset-lint-recommended": "7.0.1",
+    "standard-readme-preset": "1.0.13"
+  }
+}
