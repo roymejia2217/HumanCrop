@@ -453,14 +453,18 @@ jobs:
           RELEASE_SHA: ${{ needs.release-detection.outputs.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+          RECOVERY_STAGE=input_identity
+          trap 'status=$?; printf "::error::Draft recovery failed at stage %s (exit %s)\n" "$RECOVERY_STAGE" "$status" >&2' ERR
           [[ "$RELEASE_TAG" == "v$RELEASE_VERSION" ]]
           [[ "$RELEASE_ID" =~ ^[0-9]+$ ]]
 
+          RECOVERY_STAGE=tag_identity
           TAG_JSON="$(gh api "repos/${REPOSITORY}/git/ref/tags/${RELEASE_TAG}")"
           [[ "$(jq -r '.object.type' <<< "$TAG_JSON")" == "commit" ]]
           [[ "$(jq -r '.object.sha' <<< "$TAG_JSON")" == "$RELEASE_SHA" ]]
 
+          RECOVERY_STAGE=release_metadata
           RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}")"
           [[ "$(jq -r '.id' <<< "$RELEASE_JSON")" == "$RELEASE_ID" ]]
           [[ "$(jq -r '.tag_name' <<< "$RELEASE_JSON")" == "$RELEASE_TAG" ]]
@@ -469,6 +473,7 @@ jobs:
           [[ "$(jq '.assets | length' <<< "$RELEASE_JSON")" == "5" ]]
           [[ "$(jq '[.assets[] | select(.state == "uploaded")] | length' <<< "$RELEASE_JSON")" == "5" ]]
 
+          RECOVERY_STAGE=asset_inventory
           EXPECTED_NAMES=(
             "HumanCrop-${RELEASE_VERSION}-win-x64.exe"
             "HumanCrop-${RELEASE_VERSION}-win-x64.exe.blockmap"
@@ -481,18 +486,21 @@ jobs:
             [[ "$(jq -r --arg name "$NAME" '[.assets[] | select(.name == $name)] | length' <<< "$RELEASE_JSON")" == "1" ]]
           done
 
+          RECOVERY_STAGE=manifest_download
           MANIFEST_DIR="${RUNNER_TEMP}/release-recovery"
           mkdir -p "$MANIFEST_DIR"
           gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --pattern 'SHA256SUMS.txt' --dir "$MANIFEST_DIR"
           MANIFEST="$MANIFEST_DIR/SHA256SUMS.txt"
           test -f "$MANIFEST"
 
+          RECOVERY_STAGE=manifest_integrity
           REMOTE_DIGEST="$(jq -er --arg name 'SHA256SUMS.txt' '.assets[] | select(.name == $name) | .digest' <<< "$RELEASE_JSON")"
           MANIFEST_SHA="$(sha256sum "$MANIFEST" | awk '{print $1}')"
           [[ "$REMOTE_DIGEST" == "sha256:$MANIFEST_SHA" ]]
           [[ "$(wc -l < "$MANIFEST" | tr -d '[:space:]')" == "4" ]]
           [[ "$(awk 'NF != 2 {count++} END {print count+0}' "$MANIFEST")" == "0" ]]
 
+          RECOVERY_STAGE=asset_digests
           for NAME in "${EXPECTED_NAMES[@]:0:4}"; do
             [[ "$(awk -v name="$NAME" '$2 == name {count++} END {print count+0}' "$MANIFEST")" == "1" ]]
             EXPECTED_SHA="$(awk -v name="$NAME" '$2 == name {print $1}' "$MANIFEST")"
@@ -505,13 +513,16 @@ jobs:
           done
 
           # Guard against a draft or tag mutation between discovery and publication.
+          RECOVERY_STAGE=remote_reverification
           CURRENT_RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}")"
           [[ "$(jq -c '{tag_name, target_commitish, draft, assets: [.assets[] | {name, digest, size, state}]}' <<< "$CURRENT_RELEASE_JSON")" == \
              "$(jq -c '{tag_name, target_commitish, draft, assets: [.assets[] | {name, digest, size, state}]}' <<< "$RELEASE_JSON")" ]]
           TAG_JSON="$(gh api "repos/${REPOSITORY}/git/ref/tags/${RELEASE_TAG}")"
           [[ "$(jq -r '.object.sha' <<< "$TAG_JSON")" == "$RELEASE_SHA" ]]
 
+          RECOVERY_STAGE=publication
           gh release edit "$RELEASE_TAG" --repo "$REPOSITORY" --draft=false --latest
+          RECOVERY_STAGE=post_publication
           FINAL_RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}")"
           [[ "$(jq -r '.draft' <<< "$FINAL_RELEASE_JSON")" == "false" ]]
           [[ "$(jq -r '.tag_name' <<< "$FINAL_RELEASE_JSON")" == "$RELEASE_TAG" ]]
