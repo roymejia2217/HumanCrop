@@ -131,7 +131,7 @@ jobs:
               <<< "$RELEASES_JSON")"
             RELEASE_ID="$(jq -er '.id' <<< "$RELEASE_JSON")"
             RELEASE_TARGET="$(jq -er '.target_commitish' <<< "$RELEASE_JSON")"
-            IS_DRAFT="$(jq -er '.draft' <<< "$RELEASE_JSON")"
+            IS_DRAFT="$(jq -r '.draft' <<< "$RELEASE_JSON")"
             if [[ "$RELEASE_TARGET" != "$RELEASE_SHA" ]]; then
               echo "Existing release has an unexpected target commit" >&2
               exit 1
