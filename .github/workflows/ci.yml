@@ -63,6 +63,15 @@ jobs:
       - name: Lint Markdown
         run: npm run lint:docs
 
+      - name: Install pinned Standard Readme policy
+        run: npm ci --prefix ci/readme-policy --ignore-scripts --no-audit --no-fund
+
+      - name: Validate Standard Readme
+        run: npm run --prefix ci/readme-policy lint:readme
+
+      - name: Audit Standard Readme policy dependencies
+        run: npm audit --prefix ci/readme-policy --audit-level=moderate
+
       - name: Check documentation links
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:

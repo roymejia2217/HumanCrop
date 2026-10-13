@@ -28,8 +28,8 @@ The npm package identifier is lowercase `humancrop` to follow package naming con
 - [Testing](#testing)
 - [Examples](#examples)
 - [Screenshots](#screenshots)
+- [Acknowledgments](#acknowledgments)
 - [Maintainers](#maintainers)
-- [Thanks](#thanks)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -133,6 +133,11 @@ HumanCrop/
 │   ├── icon.icns
 │   ├── icon.ico
 │   └── icons/
+├── ci/
+│   └── readme-policy/
+│       ├── package.json
+│       ├── package-lock.json
+│       └── verify.mjs
 ├── docs/
 │   ├── banner.webp
 │   ├── examples/
@@ -186,7 +191,11 @@ Release builds run model validation, compile TypeScript, and write packaged arti
 npm test
 npm run build
 npm run lint:docs
+npm ci --prefix ci/readme-policy --ignore-scripts --no-audit --no-fund
+npm run --prefix ci/readme-policy lint:readme
 ```
+
+The Standard Readme gate uses the upstream `standard-readme-preset` and the recommended and consistent remark lint presets. It runs in the required Documentation Quality job, alongside Markdown linting and link checking.
 
 The repository validates release configuration and packaging contracts, TypeScript compilation, commit/PR governance, workflow syntax, Markdown quality, documentation links, and the production AppImage contract.
 
@@ -210,11 +219,7 @@ The repository validates release configuration and packaging contracts, TypeScri
 | <img src="docs/screenshots/completedmodal.webp" alt="Batch completion" width="220"> | Completion dialog with success, warning, and error counts. |
 | <img src="docs/screenshots/guide.webp" alt="User guide" width="220"> | In-app guide for the HumanCrop workflow. |
 
-## Maintainers
-
-- [Roy Mejía](https://github.com/roymejia2217)
-
-## Thanks
+## Acknowledgments
 
 | Project | Role | License |
 | --- | --- | --- |
@@ -225,6 +230,10 @@ The repository validates release configuration and packaging contracts, TypeScri
 | [i18next](https://www.i18next.com/) | Provides runtime localization for the desktop interface and menu labels. | MIT |
 | [i18next FS Backend](https://github.com/i18next/i18next-fs-backend) | Loads localization dictionaries from bundled JSON files. | MIT |
 | [Lucide](https://lucide.dev/) | Renders the application icon set in the renderer process. | ISC |
+
+## Maintainers
+
+- [Roy Mejía](https://github.com/roymejia2217)
 
 ## Contributing
 
