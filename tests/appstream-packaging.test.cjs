@@ -5,6 +5,18 @@ const path = require('node:path');
 const test = require('node:test');
 
 const rootDir = path.resolve(__dirname, '..');
+const pkg = require('../package.json');
+
+test('Linux desktop ID matches the executable and AppStream launchable', async () => {
+  assert.equal(pkg.desktopName, 'humancrop.desktop');
+  assert.equal(pkg.build.linux.syncDesktopName, true);
+  assert.equal(pkg.build.linux.executableName, 'humancrop');
+  assert.equal(APPSTREAM_DESKTOP_RELATIVE_PATH, path.join('usr', 'share', 'applications', pkg.desktopName));
+  const appstream = await fs.readFile(
+    path.join(rootDir, 'build/linux/com.rjmejia.humancrop.appdata.xml'), 'utf8',
+  );
+  assert.ok(appstream.includes('<launchable type="desktop-id">humancrop.desktop</launchable>'));
+});
 const {
   APPSTREAM_DESKTOP_RELATIVE_PATH,
   APPSTREAM_METADATA_RELATIVE_PATH,
@@ -56,6 +68,7 @@ test('AppImage packaging installs a standard desktop-id for AppStream tree valid
     assert.match(desktop, /^Name=HumanCrop$/m);
     assert.match(desktop, /^Exec=AppRun --no-sandbox %U$/m);
     assert.match(desktop, /^Icon=humancrop$/m);
+    assert.match(desktop, /^StartupWMClass=humancrop$/m);
     assert.match(desktop, /^Categories=Graphics;$/m);
   } finally {
     await fs.rm(context.appOutDir, { recursive: true, force: true });

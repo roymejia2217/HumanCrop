@@ -64,7 +64,8 @@
       "maintainer": "RJ Mejia",
       "executableName": "humancrop",
       "synopsis": "Offline AI biometric photo cropper",
-      "description": "Privacy-first desktop application for offline batch processing of official ID photos using AI biometric cropping and background removal."
+      "description": "Privacy-first desktop application for offline batch processing of official ID photos using AI biometric cropping and background removal.",
+      "syncDesktopName": true
     },
     "deb": {
       "depends": [
@@ -119,5 +120,6 @@
       "remark-preset-lint-consistent",
       "remark-preset-lint-recommended"
     ]
-  }
+  },
+  "desktopName": "humancrop.desktop"
 }
