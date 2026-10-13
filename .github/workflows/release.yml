@@ -69,11 +69,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Create scoped draft discovery GitHub App token
+        id: draft-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.HUMANCROP_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HUMANCROP_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Detect governed pending release
         id: detect
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          DRAFT_TOKEN: ${{ steps.draft-app-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -125,7 +134,7 @@ jobs:
               exit 1
             fi
 
-            RELEASES_JSON="$(gh api "repos/${REPOSITORY}/releases?per_page=100" --paginate --slurp)"
+            RELEASES_JSON="$(GH_TOKEN="$DRAFT_TOKEN" gh api "repos/${REPOSITORY}/releases?per_page=100" --paginate --slurp)"
             RELEASE_JSON="$(jq -cer --arg tag "v$VERSION" \
               '[.[][] | select(.tag_name == $tag)] | if length == 1 then .[0] else error("Release must exist exactly once") end' \
               <<< "$RELEASES_JSON")"
