@@ -456,6 +456,10 @@ jobs:
           set -Eeuo pipefail
           RECOVERY_STAGE=input_identity
           trap 'status=$?; printf "::error::Draft recovery failed at stage %s (exit %s)\n" "$RECOVERY_STAGE" "$status" >&2' ERR
+          fail_recovery() {
+            printf '::error::Draft recovery failed at stage %s: %s\n' "$RECOVERY_STAGE" "$1" >&2
+            exit 1
+          }
           [[ "$RELEASE_TAG" == "v$RELEASE_VERSION" ]]
           [[ "$RELEASE_ID" =~ ^[0-9]+$ ]]
 
@@ -507,8 +511,7 @@ jobs:
             [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{64}$ ]]
             REMOTE_DIGEST="$(jq -er --arg name "$NAME" '.assets[] | select(.name == $name) | .digest' <<< "$RELEASE_JSON")"
             if [[ "$REMOTE_DIGEST" != "sha256:$EXPECTED_SHA" ]]; then
-              echo "Remote digest mismatch for $NAME" >&2
-              exit 1
+              fail_recovery "Remote digest mismatch for $NAME"
             fi
           done
 

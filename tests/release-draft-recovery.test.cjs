@@ -75,7 +75,9 @@ test('recovery remains fail-closed and cannot bypass release governance', () => 
   const recovery = job('recover-draft-release');
   assert.match(recovery, /needs: release-detection/);
   assert.match(recovery, /outputs\.recover_release == 'true'/);
-  assert.match(recovery, /set -euo pipefail/);
+  assert.match(recovery, /set -Eeuo pipefail/);
+  assert.match(recovery, /trap 'status=\$\?;[^'\n]*' ERR/);
+  assert.match(recovery, /fail_recovery\(\)/);
   assert.match(recovery, /RELEASE_SHA/);
   assert.match(recovery, /RELEASE_TAG/);
   assert.doesNotMatch(workflow, /workflow_dispatch:|gh release create/);

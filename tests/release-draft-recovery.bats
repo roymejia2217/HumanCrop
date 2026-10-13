@@ -105,10 +105,12 @@ teardown() {
   [ "$status" -ne 0 ]
   [ ! -f "$GH_TEST_PUBLISHED" ]
 }
-@test "refuses denied GitHub API permission" {
+@test "refuses denied GitHub API permission and identifies failing stage" {
   export GH_TEST_DENY=true
   run bash "$script"
   [ "$status" -ne 0 ]
+  [[ "$output" == *"::error::Draft recovery failed at stage tag_identity"* ]]
+  [[ "$output" != *"$GH_TOKEN"* ]]
   [ ! -f "$GH_TEST_PUBLISHED" ]
 }
 @test "refuses concurrent mutation during re-verification" {
