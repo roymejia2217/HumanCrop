@@ -54,6 +54,29 @@ teardown() {
   [ "$status" -eq 0 ]
   [ -f "$GH_TEST_PUBLISHED" ]
 }
+@test "accepts authentic mixed CRLF Windows and LF Linux manifest without changing bytes" {
+  # PowerShell Set-Content emits CRLF, whereas sha256sum on Ubuntu emits LF.
+  awk 'NR <= 2 { printf "%s\r\n", $0; next } { print }' "$GH_TEST_MANIFEST" > "$GH_TEST_ROOT/mixed"
+  mv "$GH_TEST_ROOT/mixed" "$GH_TEST_MANIFEST"
+  manifest_sha="$(sha256sum "$GH_TEST_MANIFEST" | awk '{print $1}')"
+  jq --arg digest "sha256:$manifest_sha" '(.assets[] | select(.name == "SHA256SUMS.txt") | .digest) = $digest' \
+    "$GH_TEST_RELEASE_JSON" > "$GH_TEST_ROOT/release.tmp"
+  mv "$GH_TEST_ROOT/release.tmp" "$GH_TEST_RELEASE_JSON"
+  run bash "$script"
+  [ "$status" -eq 0 ]
+  [ -f "$GH_TEST_PUBLISHED" ]
+  [[ "$output" != *"$GH_TOKEN"* ]]
+}
+
+@test "rejects modified mixed-ending manifest if metadata digest is unchanged" {
+  awk 'NR <= 2 { printf "%s\r\n", $0; next } { print }' "$GH_TEST_MANIFEST" > "$GH_TEST_ROOT/mixed"
+  mv "$GH_TEST_ROOT/mixed" "$GH_TEST_MANIFEST"
+  run bash "$script"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"::error::Draft recovery failed at stage manifest_integrity"* ]]
+  [ ! -f "$GH_TEST_PUBLISHED" ]
+}
+
 @test "refuses mismatched tag commit and identifies failing gate" {
   jq '.object.sha="different"' "$GH_TEST_TAG_JSON" > "$GH_TEST_ROOT/tmp"
   mv "$GH_TEST_ROOT/tmp" "$GH_TEST_TAG_JSON"

@@ -510,8 +510,10 @@ jobs:
 
           RECOVERY_STAGE=asset_digests
           for NAME in "${EXPECTED_NAMES[@]:0:4}"; do
-            [[ "$(awk -v name="$NAME" '$2 == name {count++} END {print count+0}' "$MANIFEST")" == "1" ]]
-            EXPECTED_SHA="$(awk -v name="$NAME" '$2 == name {print $1}' "$MANIFEST")"
+            # PowerShell writes CRLF, while the Linux sha256sum manifest uses LF.
+            # Strip only a terminal CR from the parsed name; do not mutate the signed manifest.
+            [[ "$(awk -v name="$NAME" '{sub(/\r$/, "", $2); if ($2 == name) count++} END {print count+0}' "$MANIFEST")" == "1" ]]
+            EXPECTED_SHA="$(awk -v name="$NAME" '{sub(/\r$/, "", $2); if ($2 == name) print $1}' "$MANIFEST")"
             [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{64}$ ]]
             REMOTE_DIGEST="$(jq -er --arg name "$NAME" '.assets[] | select(.name == $name) | .digest' <<< "$RELEASE_JSON")"
             if [[ "$REMOTE_DIGEST" != "sha256:$EXPECTED_SHA" ]]; then
