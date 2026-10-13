@@ -355,6 +355,7 @@ jobs:
           client-id: ${{ vars.HUMANCROP_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.HUMANCROP_RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
+          permission-workflows: write
           permission-issues: write
           permission-pull-requests: write
 
