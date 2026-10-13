@@ -56,6 +56,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       pending_release: ${{ steps.detect.outputs.pending_release }}
+      recover_release: ${{ steps.detect.outputs.recover_release }}
+      release_id: ${{ steps.detect.outputs.release_id }}
       version: ${{ steps.detect.outputs.version }}
       sha: ${{ steps.detect.outputs.sha }}
 
@@ -87,13 +89,6 @@ jobs:
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
-            echo "::notice::v$VERSION already exists; no release is pending."
-            echo "sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
-            echo "pending_release=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
           EXPECTED_SUBJECT="chore(main): release $VERSION"
           RELEASE_SHA="$(git log --format='%H%x09%s' | awk -F '\t' -v expected="$EXPECTED_SUBJECT" '$2 == expected && !found {print $1; found=1}')"
           if [[ -z "$RELEASE_SHA" ]]; then
@@ -122,6 +117,41 @@ jobs:
             exit 1
           fi
 
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            TAG_JSON="$(gh api "repos/${REPOSITORY}/git/ref/tags/v${VERSION}")"
+            TAG_SHA="$(jq -er 'if .object.type == "commit" then .object.sha else error("Expected a lightweight release tag") end' <<< "$TAG_JSON")"
+            if [[ "$TAG_SHA" != "$RELEASE_SHA" ]]; then
+              echo "Existing release tag points to $TAG_SHA, expected $RELEASE_SHA" >&2
+              exit 1
+            fi
+
+            RELEASES_JSON="$(gh api "repos/${REPOSITORY}/releases?per_page=100" --paginate --slurp)"
+            RELEASE_JSON="$(jq -cer --arg tag "v$VERSION" \
+              '[.[][] | select(.tag_name == $tag)] | if length == 1 then .[0] else error("Release must exist exactly once") end' \
+              <<< "$RELEASES_JSON")"
+            RELEASE_ID="$(jq -er '.id' <<< "$RELEASE_JSON")"
+            RELEASE_TARGET="$(jq -er '.target_commitish' <<< "$RELEASE_JSON")"
+            IS_DRAFT="$(jq -er '.draft' <<< "$RELEASE_JSON")"
+            if [[ "$RELEASE_TARGET" != "$RELEASE_SHA" ]]; then
+              echo "Existing release has an unexpected target commit" >&2
+              exit 1
+            fi
+
+            echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+            echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+            echo "pending_release=false" >> "$GITHUB_OUTPUT"
+            if [[ "$IS_DRAFT" == "true" ]]; then
+              echo "::notice::Recovering incomplete verified draft v$VERSION (release $RELEASE_ID)."
+              echo "recover_release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::v$VERSION is already published."
+              echo "recover_release=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          echo "recover_release=false" >> "$GITHUB_OUTPUT"
+
           echo "::notice::Pending governed release v$VERSION at $RELEASE_SHA."
           echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
           echo "pending_release=true" >> "$GITHUB_OUTPUT"
@@ -129,7 +159,7 @@ jobs:
   release-pr:
     name: Maintain Release Please PR
     needs: release-detection
-    if: ${{ needs.release-detection.outputs.pending_release != 'true' }}
+    if: ${{ needs.release-detection.outputs.pending_release != 'true' && needs.release-detection.outputs.recover_release != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -384,6 +414,96 @@ jobs:
           [[ "$RELEASE_TAG" == "v$EXPECTED_VERSION" ]]
           [[ "$RELEASE_SHA" == "$EXPECTED_SHA" ]]
 
+  recover-draft-release:
+    name: Recover Verified Draft Release
+    needs: release-detection
+    if: ${{ needs.release-detection.outputs.recover_release == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Create publication GitHub App token
+        id: publish-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.HUMANCROP_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HUMANCROP_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Verify existing draft assets and complete governed publication
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.publish-app-token.outputs.token }}
+          RELEASE_VERSION: ${{ needs.release-detection.outputs.version }}
+          RELEASE_TAG: v${{ needs.release-detection.outputs.version }}
+          RELEASE_ID: ${{ needs.release-detection.outputs.release_id }}
+          RELEASE_SHA: ${{ needs.release-detection.outputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" == "v$RELEASE_VERSION" ]]
+          [[ "$RELEASE_ID" =~ ^[0-9]+$ ]]
+
+          TAG_JSON="$(gh api "repos/${REPOSITORY}/git/ref/tags/${RELEASE_TAG}")"
+          [[ "$(jq -r '.object.type' <<< "$TAG_JSON")" == "commit" ]]
+          [[ "$(jq -r '.object.sha' <<< "$TAG_JSON")" == "$RELEASE_SHA" ]]
+
+          RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}")"
+          [[ "$(jq -r '.id' <<< "$RELEASE_JSON")" == "$RELEASE_ID" ]]
+          [[ "$(jq -r '.tag_name' <<< "$RELEASE_JSON")" == "$RELEASE_TAG" ]]
+          [[ "$(jq -r '.target_commitish' <<< "$RELEASE_JSON")" == "$RELEASE_SHA" ]]
+          [[ "$(jq -r '.draft' <<< "$RELEASE_JSON")" == "true" ]]
+          [[ "$(jq '.assets | length' <<< "$RELEASE_JSON")" == "5" ]]
+          [[ "$(jq '[.assets[] | select(.state == "uploaded")] | length' <<< "$RELEASE_JSON")" == "5" ]]
+
+          EXPECTED_NAMES=(
+            "HumanCrop-${RELEASE_VERSION}-win-x64.exe"
+            "HumanCrop-${RELEASE_VERSION}-win-x64.exe.blockmap"
+            "HumanCrop-${RELEASE_VERSION}-x86_64.AppImage"
+            "HumanCrop-${RELEASE_VERSION}-linux-amd64.deb"
+            "SHA256SUMS.txt"
+          )
+
+          for NAME in "${EXPECTED_NAMES[@]}"; do
+            [[ "$(jq -r --arg name "$NAME" '[.assets[] | select(.name == $name)] | length' <<< "$RELEASE_JSON")" == "1" ]]
+          done
+
+          MANIFEST_DIR="${RUNNER_TEMP}/release-recovery"
+          mkdir -p "$MANIFEST_DIR"
+          gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --pattern 'SHA256SUMS.txt' --dir "$MANIFEST_DIR"
+          MANIFEST="$MANIFEST_DIR/SHA256SUMS.txt"
+          test -f "$MANIFEST"
+
+          REMOTE_DIGEST="$(jq -er --arg name 'SHA256SUMS.txt' '.assets[] | select(.name == $name) | .digest' <<< "$RELEASE_JSON")"
+          MANIFEST_SHA="$(sha256sum "$MANIFEST" | awk '{print $1}')"
+          [[ "$REMOTE_DIGEST" == "sha256:$MANIFEST_SHA" ]]
+          [[ "$(wc -l < "$MANIFEST" | tr -d '[:space:]')" == "4" ]]
+          [[ "$(awk 'NF != 2 {count++} END {print count+0}' "$MANIFEST")" == "0" ]]
+
+          for NAME in "${EXPECTED_NAMES[@]:0:4}"; do
+            [[ "$(awk -v name="$NAME" '$2 == name {count++} END {print count+0}' "$MANIFEST")" == "1" ]]
+            EXPECTED_SHA="$(awk -v name="$NAME" '$2 == name {print $1}' "$MANIFEST")"
+            [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{64}$ ]]
+            REMOTE_DIGEST="$(jq -er --arg name "$NAME" '.assets[] | select(.name == $name) | .digest' <<< "$RELEASE_JSON")"
+            if [[ "$REMOTE_DIGEST" != "sha256:$EXPECTED_SHA" ]]; then
+              echo "Remote digest mismatch for $NAME" >&2
+              exit 1
+            fi
+          done
+
+          # Guard against a draft or tag mutation between discovery and publication.
+          CURRENT_RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}")"
+          [[ "$(jq -c '{tag_name, target_commitish, draft, assets: [.assets[] | {name, digest, size, state}]}' <<< "$CURRENT_RELEASE_JSON")" == \
+             "$(jq -c '{tag_name, target_commitish, draft, assets: [.assets[] | {name, digest, size, state}]}' <<< "$RELEASE_JSON")" ]]
+          TAG_JSON="$(gh api "repos/${REPOSITORY}/git/ref/tags/${RELEASE_TAG}")"
+          [[ "$(jq -r '.object.sha' <<< "$TAG_JSON")" == "$RELEASE_SHA" ]]
+
+          gh release edit "$RELEASE_TAG" --repo "$REPOSITORY" --draft=false --latest
+          FINAL_RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}")"
+          [[ "$(jq -r '.draft' <<< "$FINAL_RELEASE_JSON")" == "false" ]]
+          [[ "$(jq -r '.tag_name' <<< "$FINAL_RELEASE_JSON")" == "$RELEASE_TAG" ]]
+          [[ "$(jq '.assets | length' <<< "$FINAL_RELEASE_JSON")" == "5" ]]
+
   publish:
     name: Publish Verified Release
     needs:
@@ -474,10 +594,16 @@ jobs:
           GH_TOKEN: ${{ steps.publish-app-token.outputs.token }}
           RELEASE_VERSION: ${{ needs.create-draft-release.outputs.version }}
           RELEASE_TAG: ${{ needs.create-draft-release.outputs.tag_name }}
+          RELEASE_SHA: ${{ needs.create-draft-release.outputs.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/tags/${RELEASE_TAG}")"
+          RELEASES_JSON="$(gh api "repos/${REPOSITORY}/releases?per_page=100" --paginate --slurp)"
+          RELEASE_ID="$(jq -er --arg tag "$RELEASE_TAG"             '[.[][] | select(.tag_name == $tag and .draft == true)] | if length == 1 then .[0].id else error("Expected exactly one draft release") end'             <<< "$RELEASES_JSON")"
+          RELEASE_JSON="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}")"
+          [[ "$(jq -r '.draft' <<< "$RELEASE_JSON")" == "true" ]]
+          [[ "$(jq -r '.tag_name' <<< "$RELEASE_JSON")" == "$RELEASE_TAG" ]]
+          [[ "$(jq -r '.target_commitish' <<< "$RELEASE_JSON")" == "$RELEASE_SHA" ]]
           ACTUAL_COUNT="$(jq '.assets | length' <<< "$RELEASE_JSON")"
           [[ "$ACTUAL_COUNT" == "5" ]]
 
