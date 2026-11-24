@@ -96,7 +96,7 @@
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-wasm": "^4.22.0",
     "@vladmandic/human": "^3.2.1",
-    "i18next": "^25.8.13",
+    "i18next": "^26.3.4",
     "i18next-fs-backend": "^2.6.8",
     "lucide": "^0.575.0",
     "onnxruntime-node": "1.17.3",
